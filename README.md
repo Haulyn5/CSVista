@@ -13,6 +13,10 @@ Frustrated by the lack of satisfying VS Code extensions for large CSV files, I b
 - Page through CSV rows without sending the full dataset to the client.
 - Provide useful metadata: row count, column count, file size, and inferred
   column types.
+- Customize the table layout with column hiding, drag-and-drop column ordering,
+  column resizing, and per-column wrapping.
+- Remember table layout preferences per CSV in browser storage when the same
+  file is opened again.
 - Keep local filesystem access explicit and constrained.
 
 ## Non-Goals (for now)
@@ -98,13 +102,15 @@ workflow.
 - Open CSV files from allowed local directories.
 - Return file metadata and paginated rows through an API.
 - Display rows in a responsive paginated web table.
+- Support column hiding, column reordering, column resizing, per-column text
+  wrapping, and resettable per-file layout memory in the browser.
 - Cache the most recently read file snapshot to avoid repeated parsing during
   normal browsing.
 
 ## Planned Features
 
 - Detect common encodings and delimiters.
-- Support virtual scrolling, sorting, simple search, and column hiding.
+- Support virtual scrolling, sorting, and simple search.
 - Add missing-value summaries, sample values, and basic column profiling.
 
 ## Repository Layout

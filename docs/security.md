@@ -56,3 +56,10 @@ Upload handling should enforce:
 CSV files often contain private data. CSVista should avoid telemetry by default,
 avoid sending data outside the local service, and make any future external
 integration opt-in.
+
+The browser UI stores per-file table layout preferences in `localStorage` so a
+CSV can reopen with the remembered column order, visibility, widths, and wrapping
+settings. This storage is local to the browser and does not include row values,
+but it can include column names and layout metadata. Users handling especially
+sensitive schemas should clear browser site data if that local metadata should
+not remain on the machine.
