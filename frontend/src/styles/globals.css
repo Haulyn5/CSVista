@@ -156,8 +156,16 @@ button:disabled {
 
 .sidebar h2 {
   font-size: 16px;
-  margin: 0 0 12px;
+  margin: 0;
   overflow-wrap: anywhere;
+}
+
+.sidebar-header {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-bottom: 12px;
 }
 
 .muted {
@@ -175,25 +183,59 @@ button:disabled {
   align-items: center;
   display: flex;
   gap: 8px;
-  justify-content: space-between;
 }
 
 .metric {
   background: #f4f7f7;
   border-radius: 6px;
+  justify-content: space-between;
   padding: 10px;
 }
 
 .column-item {
   border-bottom: 1px solid #edf0f4;
+  cursor: grab;
   min-width: 0;
   padding: 8px 0;
 }
 
-.column-item span {
+.column-item.dragging {
+  opacity: 0.45;
+}
+
+.column-item.hidden-column {
+  color: #98a2b3;
+}
+
+.column-drag-icon {
+  color: #98a2b3;
+  flex: 0 0 auto;
+}
+
+.column-visibility {
+  align-items: center;
+  cursor: pointer;
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+}
+
+.column-visibility input {
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.column-visibility span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.column-item code {
+  flex: 0 0 auto;
 }
 
 code {
