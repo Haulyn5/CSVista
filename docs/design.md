@@ -6,7 +6,8 @@ CSVista runs as a local web service. A user starts the service from a terminal,
 opens the browser UI, and chooses either:
 
 - a CSV file upload; or
-- a local CSV path that is inside an allowed directory.
+- a local CSV path that is inside an allowed directory, unless the service was
+  started with the explicit unsafe all-paths mode.
 
 The application should feel like a data inspection tool, not a marketing page:
 the first screen is an open-file workflow, and the main screen is the table
@@ -31,7 +32,8 @@ FastAPI backend
 
 ### Backend Responsibilities
 
-- Validate local file paths against configured allow directories.
+- Validate local file paths against configured allow directories unless unsafe
+  all-paths mode is explicitly enabled.
 - Accept uploads into a managed temporary storage area.
 - Register opened files and return opaque file IDs.
 - Infer metadata and column types.

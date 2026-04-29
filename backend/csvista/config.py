@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class ServerConfig(BaseModel):
     allowed_dirs: list[Path] = Field(default_factory=lambda: [Path.cwd()])
+    unsafe_allow_all_paths: bool = False
     max_upload_bytes: int = 256 * 1024 * 1024
     frontend_dist: Path | None = None
 

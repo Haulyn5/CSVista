@@ -80,6 +80,13 @@ pnpm --dir frontend build
 csvista serve --allow-dir examples
 ```
 
+For a trusted local-only session that needs to browse CSV files outside any
+configured allow directory, start with the explicit unsafe flag:
+
+```bash
+csvista serve --unsafe-allow-all-paths
+```
+
 Open:
 
 ```text

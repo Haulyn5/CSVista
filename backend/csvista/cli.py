@@ -23,6 +23,13 @@ def serve(
         list[Path] | None,
         typer.Option("--allow-dir", help="Directory that CSVista may read local CSV files from."),
     ] = None,
+    unsafe_allow_all_paths: Annotated[
+        bool,
+        typer.Option(
+            "--unsafe-allow-all-paths",
+            help="Dangerous: allow opening CSV files from any local path, ignoring --allow-dir.",
+        ),
+    ] = False,
 ) -> None:
     """Start the CSVista web service."""
     allowed_dirs = allow_dir or [Path.cwd()]
@@ -31,8 +38,16 @@ def serve(
             "Warning: CSVista is designed for trusted local use. "
             f"Binding to {host!r} may expose local file browsing APIs."
         )
+    if unsafe_allow_all_paths:
+        typer.echo(
+            "Warning: --unsafe-allow-all-paths disables local path allow-dir restrictions. "
+            "Only use it on a trusted machine and network."
+        )
 
-    config = ServerConfig(allowed_dirs=allowed_dirs)
+    config = ServerConfig(
+        allowed_dirs=allowed_dirs,
+        unsafe_allow_all_paths=unsafe_allow_all_paths,
+    )
     uvicorn.run(create_app(config), host=host, port=port)
 
 

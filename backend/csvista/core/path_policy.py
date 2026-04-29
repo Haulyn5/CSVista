@@ -6,9 +6,10 @@ class PathPolicyError(ValueError):
 
 
 class PathPolicy:
-    def __init__(self, allowed_dirs: list[Path]) -> None:
-        if not allowed_dirs:
+    def __init__(self, allowed_dirs: list[Path], *, allow_all_paths: bool = False) -> None:
+        if not allowed_dirs and not allow_all_paths:
             raise ValueError("At least one allowed directory is required.")
+        self.allow_all_paths = allow_all_paths
         self.allowed_dirs = [path.expanduser().resolve() for path in allowed_dirs]
 
     def validate_csv_file(self, path: Path) -> Path:
@@ -24,5 +25,6 @@ class PathPolicy:
         return resolved
 
     def _is_allowed(self, path: Path) -> bool:
+        if self.allow_all_paths:
+            return True
         return any(path == allowed or path.is_relative_to(allowed) for allowed in self.allowed_dirs)
-

@@ -15,7 +15,10 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     config = config or ServerConfig()
     app = FastAPI(title="CSVista", version="0.1.0")
 
-    path_policy = PathPolicy(config.resolved_allowed_dirs())
+    path_policy = PathPolicy(
+        config.resolved_allowed_dirs(),
+        allow_all_paths=config.unsafe_allow_all_paths,
+    )
     registry = FileRegistry()
 
     app.state.config = config

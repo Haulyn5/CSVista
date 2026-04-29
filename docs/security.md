@@ -8,6 +8,8 @@ Filesystem access therefore needs explicit boundaries.
 - Bind to `127.0.0.1` by default.
 - Allow local path reads only under the process working directory by default.
 - Require explicit `--allow-dir` values for additional directories.
+- Provide `--unsafe-allow-all-paths` as an explicit dangerous escape hatch for
+  trusted local-only sessions that need to open CSV files from any local path.
 - Store uploads in a managed temporary directory.
 - Do not fetch remote URLs in the MVP.
 
@@ -27,6 +29,11 @@ This prevents path traversal such as:
 ```
 
 and symlink escapes from an allowed directory.
+
+When the service is started with `--unsafe-allow-all-paths`, step 3 is skipped.
+The service still resolves paths and still rejects directories, missing files,
+and non-CSV file extensions. This mode is not appropriate for services exposed
+to an untrusted network.
 
 ## Network Exposure
 
@@ -49,4 +56,3 @@ Upload handling should enforce:
 CSV files often contain private data. CSVista should avoid telemetry by default,
 avoid sending data outside the local service, and make any future external
 integration opt-in.
-

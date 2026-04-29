@@ -13,3 +13,6 @@ frontend/dist/
 backend/csvista/frontend/dist/
 *.egg-info/
 *.tsbuildinfo
+.codex
+AGENTS.md
+skills/
