@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileUp, FolderOpen, RefreshCw, TableProperties } from "lucide-react";
+import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
+import { FileUp, FolderOpen, RefreshCw, TableProperties, WrapText } from "lucide-react";
 
 import {
   FileOpenResponse,
@@ -12,6 +13,19 @@ import {
 } from "./api/client";
 
 const PAGE_SIZE = 100;
+const ROW_NUMBER_WIDTH = 72;
+const DEFAULT_COLUMN_WIDTH = 180;
+const DEFAULT_MAX_COLUMN_WIDTH = 280;
+const MIN_COLUMN_WIDTH = 80;
+const MAX_COLUMN_WIDTH = 720;
+
+type ColumnSettings = {
+  width: number;
+  wrap: boolean;
+};
+
+const EMPTY_COLUMNS: RowsResponse["columns"] = [];
+const EMPTY_ROWS: RowsResponse["rows"] = [];
 
 export function App() {
   const [currentFile, setCurrentFile] = useState<FileOpenResponse | null>(null);
@@ -203,10 +217,101 @@ function MetadataSummary({metadata}: {metadata: MetadataResponse}) {
 }
 
 function DataTable({rows, offset, loading}: {rows: RowsResponse | null; offset: number; loading: boolean}) {
-  const columns = rows?.columns ?? [];
-  const visibleRows = rows?.rows ?? [];
+  const columns = rows?.columns ?? EMPTY_COLUMNS;
+  const visibleRows = rows?.rows ?? EMPTY_ROWS;
   const hasRows = visibleRows.length > 0;
   const columnNames = useMemo(() => columns.map((column) => column.name), [columns]);
+  const defaultColumnWidths = useMemo(() => {
+    return Object.fromEntries(columnNames.map((columnName) => [columnName, estimateDefaultColumnWidth(columnName)]));
+  }, [columnNames]);
+  const [columnSettings, setColumnSettings] = useState<Record<string, ColumnSettings>>({});
+
+  useEffect(() => {
+    setColumnSettings((currentSettings) => {
+      const nextSettings: Record<string, ColumnSettings> = {};
+      for (const column of columns) {
+        nextSettings[column.name] = currentSettings[column.name] ?? {
+          width: defaultColumnWidths[column.name] ?? DEFAULT_COLUMN_WIDTH,
+          wrap: false
+        };
+      }
+      return nextSettings;
+    });
+  }, [columns, defaultColumnWidths]);
+
+  const totalTableWidth = useMemo(() => {
+    return columnNames.reduce(
+      (total, columnName) => total + (columnSettings[columnName]?.width ?? defaultColumnWidths[columnName] ?? DEFAULT_COLUMN_WIDTH),
+      ROW_NUMBER_WIDTH
+    );
+  }, [columnNames, columnSettings, defaultColumnWidths]);
+
+  function setColumnWidth(columnName: string, width: number) {
+    setColumnSettings((currentSettings) => ({
+      ...currentSettings,
+      [columnName]: {
+        width: clampColumnWidth(width),
+        wrap: currentSettings[columnName]?.wrap ?? false
+      }
+    }));
+  }
+
+  function toggleColumnWrap(columnName: string) {
+    setColumnSettings((currentSettings) => {
+      const currentColumnSettings = currentSettings[columnName] ?? {
+        width: defaultColumnWidths[columnName] ?? DEFAULT_COLUMN_WIDTH,
+        wrap: false
+      };
+      return {
+        ...currentSettings,
+        [columnName]: {
+          ...currentColumnSettings,
+          wrap: !currentColumnSettings.wrap
+        }
+      };
+    });
+  }
+
+  function handleResizeStart(columnName: string, event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = columnSettings[columnName]?.width ?? defaultColumnWidths[columnName] ?? DEFAULT_COLUMN_WIDTH;
+
+    function handlePointerMove(pointerEvent: PointerEvent) {
+      pointerEvent.preventDefault();
+      setColumnWidth(columnName, startWidth + pointerEvent.clientX - startX);
+    }
+
+    function stopResize() {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    }
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize, {once: true});
+    window.addEventListener("pointercancel", stopResize, {once: true});
+  }
+
+  function handleResizeKeyDown(columnName: string, event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+      return;
+    }
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const step = event.shiftKey ? 40 : 10;
+    setColumnWidth(
+      columnName,
+      (columnSettings[columnName]?.width ?? defaultColumnWidths[columnName] ?? DEFAULT_COLUMN_WIDTH) + direction * step
+    );
+  }
 
   if (!rows) {
     return <div className="empty-state">Open a CSV file to start browsing.</div>;
@@ -214,14 +319,50 @@ function DataTable({rows, offset, loading}: {rows: RowsResponse | null; offset: 
 
   return (
     <div className="table-wrap" aria-busy={loading}>
-      <table>
+      <table style={{minWidth: `${totalTableWidth}px`, width: `${totalTableWidth}px`}}>
+        <colgroup>
+          <col style={{width: `${ROW_NUMBER_WIDTH}px`}} />
+          {columnNames.map((columnName) => (
+            <col
+              key={columnName}
+              style={{width: `${columnSettings[columnName]?.width ?? defaultColumnWidths[columnName] ?? DEFAULT_COLUMN_WIDTH}px`}}
+            />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             <th className="row-number">#</th>
             {columns.map((column) => (
               <th key={column.name}>
-                <span>{column.name}</span>
-                <code>{column.dtype}</code>
+                <div className="column-header">
+                  <div className="column-header-title">
+                    <span>{column.name}</span>
+                    <code>{column.dtype}</code>
+                  </div>
+                  <button
+                    type="button"
+                    className={`icon-button wrap-toggle ${columnSettings[column.name]?.wrap ? "active" : ""}`}
+                    aria-label={`${columnSettings[column.name]?.wrap ? "Disable" : "Enable"} wrapping for ${column.name}`}
+                    aria-pressed={columnSettings[column.name]?.wrap ?? false}
+                    title={`${columnSettings[column.name]?.wrap ? "Disable" : "Enable"} wrapping`}
+                    onClick={() => toggleColumnWrap(column.name)}
+                  >
+                    <WrapText size={15} />
+                  </button>
+                </div>
+                <div
+                  role="separator"
+                  tabIndex={0}
+                  className="column-resizer"
+                  aria-label={`Resize ${column.name} column`}
+                  aria-orientation="vertical"
+                  aria-valuemax={MAX_COLUMN_WIDTH}
+                  aria-valuemin={MIN_COLUMN_WIDTH}
+                  aria-valuenow={columnSettings[column.name]?.width ?? defaultColumnWidths[column.name] ?? DEFAULT_COLUMN_WIDTH}
+                  title="Resize column"
+                  onPointerDown={(event) => handleResizeStart(column.name, event)}
+                  onKeyDown={(event) => handleResizeKeyDown(column.name, event)}
+                />
               </th>
             ))}
           </tr>
@@ -231,9 +372,14 @@ function DataTable({rows, offset, loading}: {rows: RowsResponse | null; offset: 
             visibleRows.map((row, rowIndex) => (
               <tr key={rowIndex}>
                 <td className="row-number">{offset + rowIndex + 1}</td>
-                {columnNames.map((columnName) => (
-                  <td key={columnName}>{formatCell(row[columnName])}</td>
-                ))}
+                {columnNames.map((columnName) => {
+                  const wraps = columnSettings[columnName]?.wrap ?? false;
+                  return (
+                    <td className={wraps ? "cell-wrap" : undefined} key={columnName}>
+                      {formatCell(row[columnName])}
+                    </td>
+                  );
+                })}
               </tr>
             ))
           ) : (
@@ -247,6 +393,15 @@ function DataTable({rows, offset, loading}: {rows: RowsResponse | null; offset: 
       </table>
     </div>
   );
+}
+
+function estimateDefaultColumnWidth(columnName: string) {
+  const headerWidth = columnName.length * 9 + 72;
+  return Math.min(DEFAULT_MAX_COLUMN_WIDTH, clampColumnWidth(Math.max(DEFAULT_COLUMN_WIDTH, headerWidth)));
+}
+
+function clampColumnWidth(width: number) {
+  return Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)));
 }
 
 function formatCell(value: unknown) {
