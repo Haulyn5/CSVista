@@ -1,0 +1,12 @@
+name: csvista
+channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge/
+  - nodefaults
+dependencies:
+  - python=3.11
+  - pip
+  - nodejs=22
+  - pnpm
+  - pip:
+      - -i https://pypi.tuna.tsinghua.edu.cn/simple
+      - -e ".[dev]"

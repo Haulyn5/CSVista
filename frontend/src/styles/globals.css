@@ -1,0 +1,337 @@
+:root {
+  color: #18212f;
+  background: #f6f7f9;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  align-items: center;
+  background: #1f6f68;
+  border: 1px solid #1f6f68;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+button:disabled {
+  background: #d9dee5;
+  border-color: #d9dee5;
+  color: #7a8494;
+  cursor: not-allowed;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar h1 {
+  font-size: 26px;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.topbar p {
+  color: #667085;
+  margin: 4px 0 0;
+}
+
+.status-pill {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-radius: 999px;
+  color: #344054;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.open-panel {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 12px;
+}
+
+.upload-button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #bac3cf;
+  border-radius: 6px;
+  color: #243041;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.upload-button input {
+  display: none;
+}
+
+.path-open {
+  align-items: center;
+  border: 1px solid #bac3cf;
+  border-radius: 6px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  padding: 4px 4px 4px 10px;
+}
+
+.path-open input {
+  border: 0;
+  min-width: 0;
+  outline: none;
+}
+
+.error-panel {
+  background: #fff4f2;
+  border: 1px solid #f6b8ae;
+  border-radius: 8px;
+  color: #9f2a1d;
+  padding: 12px 14px;
+}
+
+.workspace {
+  display: grid;
+  flex: 1;
+  gap: 16px;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.sidebar,
+.table-zone {
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-radius: 8px;
+  min-height: 0;
+}
+
+.sidebar {
+  overflow: auto;
+  padding: 14px;
+}
+
+.sidebar h2 {
+  font-size: 16px;
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: #667085;
+}
+
+.column-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metric,
+.column-item {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.metric {
+  background: #f4f7f7;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.column-item {
+  border-bottom: 1px solid #edf0f4;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.column-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+code {
+  background: #eef4f3;
+  border-radius: 4px;
+  color: #245a55;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  padding: 2px 5px;
+}
+
+.table-zone {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-toolbar,
+.pager {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+}
+
+.table-toolbar {
+  border-bottom: 1px solid #dce1e8;
+  font-weight: 650;
+}
+
+.pager {
+  border-top: 1px solid #dce1e8;
+  color: #475467;
+}
+
+.empty-state {
+  align-items: center;
+  color: #667085;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+}
+
+.table-wrap {
+  flex: 1;
+  min-height: 360px;
+  overflow: auto;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e6eaf0;
+  border-right: 1px solid #edf0f4;
+  max-width: 320px;
+  overflow: hidden;
+  padding: 9px 10px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+th {
+  background: #f8fafb;
+  color: #344054;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+th span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+tbody tr:nth-child(even) {
+  background: #fbfcfd;
+}
+
+tbody tr:hover {
+  background: #eef7f5;
+}
+
+.row-number {
+  background: #f8fafb;
+  color: #667085;
+  left: 0;
+  position: sticky;
+  text-align: right;
+  width: 72px;
+  z-index: 2;
+}
+
+td.row-number {
+  font-variant-numeric: tabular-nums;
+  z-index: 1;
+}
+
+.null-cell {
+  color: #98a2b3;
+  font-size: 12px;
+}
+
+.empty-cell {
+  color: #667085;
+  padding: 32px;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .topbar,
+  .open-panel {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    flex-direction: column;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    max-height: 260px;
+  }
+}
+

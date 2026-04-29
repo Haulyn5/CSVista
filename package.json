@@ -1,0 +1,10 @@
+{
+  "name": "csvista",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --dir frontend dev",
+    "build": "pnpm --dir frontend build",
+    "lint": "pnpm --dir frontend lint"
+  },
+  "packageManager": "pnpm@10.33.2"
+}

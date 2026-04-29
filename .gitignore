@@ -1,0 +1,15 @@
+.DS_Store
+.venv/
+.conda-env/
+.conda-pkgs/
+.cache/
+.pnpm-store/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+dist/
+node_modules/
+frontend/dist/
+backend/csvista/frontend/dist/
+*.egg-info/
+*.tsbuildinfo

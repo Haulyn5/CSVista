@@ -1,0 +1,7 @@
+id,name,role,city,active,score
+1,Ada Lovelace,Analyst,London,true,98.5
+2,Grace Hopper,Engineer,Arlington,true,96.2
+3,Katherine Johnson,Researcher,White Sulphur Springs,false,99.1
+4,Dorothy Vaughan,Manager,Kansas City,true,94.7
+5,Mary Jackson,Engineer,Hampton,true,93.4
+

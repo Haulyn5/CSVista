@@ -1,0 +1,6 @@
+id,name,notes,amount,date
+1,Alice,"contains, comma",1200.50,2026-01-15
+2,Bob,,0,2026-01-16
+3,Charlie,"long text value that should be truncated in the table view",42.75,
+4,Dana,"quoted ""inner"" value",,2026-02-01
+
