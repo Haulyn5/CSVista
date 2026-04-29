@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { FileUp, FolderOpen, GripVertical, RefreshCw, RotateCcw, TableProperties, WrapText } from "lucide-react";
+import {
+  FileUp,
+  FolderOpen,
+  GripVertical,
+  PanelLeftClose,
+  PanelLeftOpen,
+  RefreshCw,
+  RotateCcw,
+  TableProperties,
+  WrapText
+} from "lucide-react";
 
 import {
   FileOpenResponse,
@@ -46,6 +56,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
   const [rowsLoading, setRowsLoading] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [layoutIdentityHint, setLayoutIdentityHint] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>({});
@@ -272,27 +283,41 @@ export function App() {
 
       {error ? <section className="error-panel">{error}</section> : null}
 
-      <section className="workspace">
-        <aside className="sidebar">
+      <section className={`workspace ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+        <aside className="sidebar" aria-label="Column controls">
           <div className="sidebar-header">
             <h2>{metadata?.name ?? "Columns"}</h2>
-            {metadata ? (
-              <button type="button" className="icon-button" title="Reset layout" aria-label="Reset column layout" onClick={resetLayout}>
-                <RotateCcw size={15} />
+            <div className="sidebar-actions">
+              {metadata ? (
+                <button type="button" className="icon-button" title="Reset layout" aria-label="Reset column layout" onClick={resetLayout}>
+                  <RotateCcw size={15} />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="icon-button"
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                aria-label={sidebarCollapsed ? "Expand column controls" : "Collapse column controls"}
+                aria-expanded={!sidebarCollapsed}
+                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
               </button>
-            ) : null}
+            </div>
           </div>
-          {metadata ? (
-            <MetadataSummary
-              metadata={metadata}
-              columnOrder={columnOrder}
-              visibleColumns={visibleColumns}
-              onMoveColumn={moveColumn}
-              onToggleColumn={toggleColumnVisibility}
-            />
-          ) : (
-            <p className="muted">Open a CSV to inspect columns.</p>
-          )}
+          <div className="sidebar-content" hidden={sidebarCollapsed}>
+            {metadata ? (
+              <MetadataSummary
+                metadata={metadata}
+                columnOrder={columnOrder}
+                visibleColumns={visibleColumns}
+                onMoveColumn={moveColumn}
+                onToggleColumn={toggleColumnVisibility}
+              />
+            ) : (
+              <p className="muted">Open a CSV to inspect columns.</p>
+            )}
+          </div>
         </aside>
 
         <section className="table-zone">

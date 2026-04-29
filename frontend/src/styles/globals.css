@@ -141,6 +141,10 @@ button:disabled {
   min-height: 0;
 }
 
+.workspace.sidebar-collapsed {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
 .sidebar,
 .table-zone {
   background: #ffffff;
@@ -154,10 +158,19 @@ button:disabled {
   padding: 14px;
 }
 
+.workspace.sidebar-collapsed .sidebar {
+  overflow: hidden;
+  padding: 10px;
+}
+
 .sidebar h2 {
   font-size: 16px;
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.workspace.sidebar-collapsed .sidebar h2 {
+  display: none;
 }
 
 .sidebar-header {
@@ -166,6 +179,21 @@ button:disabled {
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto;
   margin-bottom: 12px;
+}
+
+.workspace.sidebar-collapsed .sidebar-header {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0;
+}
+
+.sidebar-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.workspace.sidebar-collapsed .sidebar-actions {
+  flex-direction: column;
 }
 
 .muted {
@@ -447,7 +475,15 @@ td.row-number {
     grid-template-columns: 1fr;
   }
 
+  .workspace.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
   .sidebar {
     max-height: 260px;
+  }
+
+  .workspace.sidebar-collapsed .sidebar {
+    max-height: 56px;
   }
 }
