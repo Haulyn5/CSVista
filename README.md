@@ -1,11 +1,10 @@
 # CSVista
 
-CSVista is a local-first CSV browser for quickly opening and inspecting CSV
-files in your browser.
+CSVista is a local-first CSV browser for fast opening and inspecting CSV files directly in the browser.
 
-The project is designed for developers, data analysts, researchers, and anyone
-who needs a fast way to understand CSV data without loading it into a notebook or
-spreadsheet first.
+Tailored for developers, data analysts and researchers, it provides a lightweight way to explore CSV data without loading files into notebooks or traditional spreadsheets.
+
+Frustrated by the lack of satisfying VS Code extensions for large CSV files, I built CSVista to handle oversized CSV files generated from experimental data. Hope it also helps others with the same pain points.
 
 ## Goals
 
@@ -16,7 +15,7 @@ spreadsheet first.
   column types.
 - Keep local filesystem access explicit and constrained.
 
-## Non-Goals
+## Non-Goals (for now)
 
 - CSV editing and saving.
 - Cloud storage or multi-user collaboration.
