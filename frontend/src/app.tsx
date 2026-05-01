@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import {
+  ChevronDown,
+  Clock,
   FileUp,
   FolderOpen,
   GripVertical,
@@ -43,9 +45,17 @@ type TableLayout = {
   columnSettings: ColumnSettingsByName;
 };
 
+type RecentFile = {
+  path: string;
+  name: string;
+  openedAt: number;
+};
+
 const EMPTY_COLUMNS: RowsResponse["columns"] = [];
 const EMPTY_ROWS: RowsResponse["rows"] = [];
 const LAYOUT_STORAGE_PREFIX = "csvista:table-layout:v1:";
+const RECENT_FILES_STORAGE_KEY = "csvista:recent-files:v1";
+const MAX_RECENT_FILES = 8;
 
 export function App() {
   const [currentFile, setCurrentFile] = useState<FileOpenResponse | null>(null);
@@ -57,6 +67,9 @@ export function App() {
   const [opening, setOpening] = useState(false);
   const [rowsLoading, setRowsLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [recentMenuOpen, setRecentMenuOpen] = useState(false);
+  const [recentFiles, setRecentFiles] = useState<RecentFile[]>(() => loadRecentFiles());
+  const recentMenuRef = useRef<HTMLDivElement | null>(null);
   const [layoutIdentityHint, setLayoutIdentityHint] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>({});
@@ -81,9 +94,11 @@ export function App() {
       const nextMetadata = await getMetadata(file.file_id);
       setCurrentFile(file);
       setMetadata(nextMetadata);
+      return true;
     } catch (err) {
       setCurrentFile(null);
       setError(err instanceof Error ? err.message : "Failed to load file.");
+      return false;
     } finally {
       setOpening(false);
     }
@@ -146,6 +161,31 @@ export function App() {
     });
   }, [columnOrder, columnSettings, layoutReady, layoutStorageKey, metadata, visibleColumns]);
 
+  useEffect(() => {
+    if (!recentMenuOpen) {
+      return;
+    }
+
+    function handleDocumentPointerDown(event: PointerEvent) {
+      if (!recentMenuRef.current?.contains(event.target as Node)) {
+        setRecentMenuOpen(false);
+      }
+    }
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setRecentMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [recentMenuOpen]);
+
   async function handleOpenPath() {
     const trimmedPath = path.trim();
     if (!trimmedPath) {
@@ -154,9 +194,32 @@ export function App() {
     setOpening(true);
     setError(null);
     try {
-      await loadFile(await openPath(trimmedPath), `path:${trimmedPath}`);
+      const openedFile = await openPath(trimmedPath);
+      if (await loadFile(openedFile, `path:${trimmedPath}`)) {
+        rememberRecentFile(trimmedPath, openedFile.name);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to open path.");
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  async function handleOpenRecent(recentFile: RecentFile) {
+    setRecentMenuOpen(false);
+    setPath(recentFile.path);
+    setOpening(true);
+    setError(null);
+    try {
+      const openedFile = await openPath(recentFile.path);
+      if (await loadFile(openedFile, `path:${recentFile.path}`)) {
+        rememberRecentFile(recentFile.path, openedFile.name);
+      } else {
+        removeRecentFile(recentFile.path);
+      }
+    } catch (err) {
+      removeRecentFile(recentFile.path);
+      setError(err instanceof Error ? err.message : "Failed to open recent file.");
     } finally {
       setOpening(false);
     }
@@ -236,6 +299,34 @@ export function App() {
     });
   }
 
+  function rememberRecentFile(recentPath: string, name: string) {
+    setRecentFiles((currentFiles) => {
+      const nextFiles = [
+        {
+          path: recentPath,
+          name,
+          openedAt: Date.now()
+        },
+        ...currentFiles.filter((recentFile) => recentFile.path !== recentPath)
+      ].slice(0, MAX_RECENT_FILES);
+      storeRecentFiles(nextFiles);
+      return nextFiles;
+    });
+  }
+
+  function removeRecentFile(recentPath: string) {
+    setRecentFiles((currentFiles) => {
+      const nextFiles = currentFiles.filter((recentFile) => recentFile.path !== recentPath);
+      storeRecentFiles(nextFiles);
+      return nextFiles;
+    });
+  }
+
+  function clearRecentFiles() {
+    setRecentFiles([]);
+    storeRecentFiles([]);
+  }
+
   const canGoPrevious = offset > 0;
   const canGoNext = rows ? offset + PAGE_SIZE < rows.total_rows : false;
 
@@ -262,6 +353,50 @@ export function App() {
             onChange={(event) => void handleUpload(event.target.files?.[0])}
           />
         </label>
+
+        <div className="recent-menu" ref={recentMenuRef}>
+          <button
+            type="button"
+            className="secondary-button recent-button"
+            aria-expanded={recentMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => setRecentMenuOpen((open) => !open)}
+          >
+            <Clock size={18} />
+            Recent
+            <ChevronDown size={16} />
+          </button>
+          {recentMenuOpen ? (
+            <div className="recent-popover" role="menu">
+              {recentFiles.length > 0 ? (
+                <>
+                  {recentFiles.map((recentFile) => (
+                    <button
+                      type="button"
+                      className="recent-item"
+                      key={recentFile.path}
+                      role="menuitem"
+                      onClick={() => void handleOpenRecent(recentFile)}
+                    >
+                      <span className="recent-name">{recentFile.name}</span>
+                      <span className="recent-path">{recentFile.path}</span>
+                      <span className="recent-time">{formatRecentTime(recentFile.openedAt)}</span>
+                    </button>
+                  ))}
+                  <div className="recent-actions">
+                    <button type="button" className="recent-clear" role="menuitem" onClick={clearRecentFiles}>
+                      Clear recent files
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="recent-empty" role="menuitem">
+                  No recent files
+                </div>
+              )}
+            </div>
+          ) : null}
+        </div>
 
         <div className="path-open">
           <FolderOpen size={18} />
@@ -767,6 +902,50 @@ function formatCell(value: unknown) {
     return <span className="null-cell">NULL</span>;
   }
   return String(value);
+}
+
+function loadRecentFiles(): RecentFile[] {
+  try {
+    const rawRecentFiles = localStorage.getItem(RECENT_FILES_STORAGE_KEY);
+    if (!rawRecentFiles) {
+      return [];
+    }
+    const parsed = JSON.parse(rawRecentFiles);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .filter(isRecentFile)
+      .sort((left, right) => right.openedAt - left.openedAt)
+      .slice(0, MAX_RECENT_FILES);
+  } catch {
+    return [];
+  }
+}
+
+function storeRecentFiles(recentFiles: RecentFile[]) {
+  try {
+    localStorage.setItem(RECENT_FILES_STORAGE_KEY, JSON.stringify(recentFiles));
+  } catch {
+    // Recent files are a convenience and should not block opening CSVs.
+  }
+}
+
+function isRecentFile(value: unknown): value is RecentFile {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return typeof value.path === "string" && typeof value.name === "string" && typeof value.openedAt === "number";
+}
+
+function formatRecentTime(openedAt: number) {
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+  return formatter.format(new Date(openedAt));
 }
 
 function formatBytes(bytes: number) {

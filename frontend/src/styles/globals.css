@@ -86,11 +86,12 @@ button:disabled {
   border-radius: 8px;
   display: grid;
   gap: 12px;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   padding: 12px;
 }
 
-.upload-button {
+.upload-button,
+.secondary-button {
   align-items: center;
   background: #ffffff;
   border: 1px solid #bac3cf;
@@ -106,6 +107,94 @@ button:disabled {
 
 .upload-button input {
   display: none;
+}
+
+.recent-menu {
+  position: relative;
+}
+
+.recent-button {
+  width: 100%;
+}
+
+.recent-popover {
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-radius: 8px;
+  box-shadow: 0 18px 38px rgb(16 24 40 / 16%);
+  left: 0;
+  min-width: 320px;
+  padding: 6px;
+  position: absolute;
+  top: calc(100% + 8px);
+  z-index: 10;
+}
+
+.recent-item {
+  align-items: start;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #243041;
+  display: grid;
+  gap: 2px;
+  min-height: 0;
+  padding: 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.recent-item:hover,
+.recent-item:focus-visible {
+  background: #eef7f5;
+  outline: none;
+}
+
+.recent-name {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.recent-path,
+.recent-time,
+.recent-empty {
+  color: #667085;
+  font-size: 12px;
+}
+
+.recent-path {
+  overflow-wrap: anywhere;
+}
+
+.recent-empty {
+  padding: 10px;
+}
+
+.recent-actions {
+  border-top: 1px solid #eef0f3;
+  margin-top: 6px;
+  padding-top: 6px;
+}
+
+.recent-clear {
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #475467;
+  cursor: pointer;
+  min-height: 32px;
+  padding: 0 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.recent-clear:hover,
+.recent-clear:focus-visible {
+  background: #f2f4f7;
+  outline: none;
 }
 
 .path-open {
@@ -465,6 +554,11 @@ td.row-number {
   .open-panel {
     align-items: stretch;
     grid-template-columns: 1fr;
+  }
+
+  .recent-popover {
+    min-width: 0;
+    right: 0;
   }
 
   .topbar {
