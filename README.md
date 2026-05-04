@@ -15,6 +15,8 @@ Frustrated by the lack of satisfying VS Code extensions for large CSV files, I b
   column types.
 - Customize the table layout with column hiding, drag-and-drop column ordering,
   column resizing, and per-column wrapping.
+- Toggle whether newline characters inside cell values are rendered as line
+  breaks.
 - Remember table layout preferences per CSV in browser storage when the same
   file is opened again.
 - Keep local filesystem access explicit and constrained.
@@ -103,7 +105,8 @@ workflow.
 - Return file metadata and paginated rows through an API.
 - Display rows in a responsive paginated web table.
 - Support column hiding, column reordering, column resizing, per-column text
-  wrapping, and resettable per-file layout memory in the browser.
+  wrapping, a global display setting for cell line breaks, and resettable
+  per-file layout memory in the browser.
 - Cache the most recently read file snapshot to avoid repeated parsing during
   normal browsing.
 

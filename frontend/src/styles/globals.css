@@ -384,6 +384,71 @@ code {
   font-weight: 650;
 }
 
+.table-actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.settings-menu {
+  position: relative;
+}
+
+.settings-button {
+  min-height: 36px;
+}
+
+.settings-popover {
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-radius: 8px;
+  box-shadow: 0 18px 38px rgb(16 24 40 / 16%);
+  min-width: 280px;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 10;
+}
+
+.setting-toggle {
+  align-items: start;
+  border-radius: 6px;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 8px;
+}
+
+.setting-toggle:hover,
+.setting-toggle:focus-within {
+  background: #eef7f5;
+}
+
+.setting-toggle input {
+  height: 16px;
+  margin: 2px 0 0;
+  width: 16px;
+}
+
+.setting-toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.setting-toggle strong {
+  color: #243041;
+  font-size: 13px;
+}
+
+.setting-toggle small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
 .pager {
   border-top: 1px solid #dce1e8;
   color: #475467;
@@ -532,6 +597,16 @@ td.row-number {
   text-overflow: clip;
   vertical-align: top;
   white-space: normal;
+}
+
+.cell-preserve-newlines {
+  text-overflow: clip;
+  vertical-align: top;
+  white-space: pre;
+}
+
+.cell-wrap.cell-preserve-newlines {
+  white-space: pre-wrap;
 }
 
 .null-cell {

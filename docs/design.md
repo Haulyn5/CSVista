@@ -51,6 +51,9 @@ FastAPI backend
 - Present loading, error, and empty states.
 - Let users adjust the table layout with column visibility toggles, column
   reordering, column resizing, and per-column text wrapping.
+- Let users choose whether newline characters inside cell values are rendered as
+  line breaks. This is a global display preference, separate from per-column
+  wrapping.
 - Persist table layout preferences in browser storage per CSV so reopening the
   same file restores the remembered layout.
 - Planned: keep richer interaction state such as selected columns, filters, and
@@ -110,6 +113,9 @@ Future large-file work can add:
 - Numeric values right-aligned.
 - Null and empty values visually distinct but quiet.
 - Long values truncated with a detail expansion path.
+- Cell-internal newline rendering should be user-controlled so dense browsing
+  remains compact by default while multiline values can be inspected when
+  needed.
 - Column metadata visible near the table, not buried in settings.
 - User-adjusted table layouts should be recoverable through a reset action, and
   remembered layout state should be scoped to the CSV rather than global across
@@ -120,8 +126,8 @@ Future large-file work can add:
 1. Project scaffold and documentation.
 2. Backend file registry, path policy, and CSV row APIs.
 3. Frontend open-file page and viewer page.
-4. Table interactions: pagination, hiding, reordering, resizing, wrapping, and
-   per-file layout memory.
+4. Table interactions: pagination, hiding, reordering, resizing, wrapping,
+   cell-line-break display, and per-file layout memory.
 5. Column profiling.
 6. Packaging into a single installable CLI.
 

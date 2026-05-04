@@ -10,6 +10,7 @@ import {
   PanelLeftOpen,
   RefreshCw,
   RotateCcw,
+  Settings2,
   TableProperties,
   WrapText
 } from "lucide-react";
@@ -45,6 +46,10 @@ type TableLayout = {
   columnSettings: ColumnSettingsByName;
 };
 
+type DisplaySettings = {
+  showCellNewlines: boolean;
+};
+
 type RecentFile = {
   path: string;
   name: string;
@@ -54,8 +59,12 @@ type RecentFile = {
 const EMPTY_COLUMNS: RowsResponse["columns"] = [];
 const EMPTY_ROWS: RowsResponse["rows"] = [];
 const LAYOUT_STORAGE_PREFIX = "csvista:table-layout:v1:";
+const DISPLAY_SETTINGS_STORAGE_KEY = "csvista:display-settings:v1";
 const RECENT_FILES_STORAGE_KEY = "csvista:recent-files:v1";
 const MAX_RECENT_FILES = 8;
+const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
+  showCellNewlines: false
+};
 
 export function App() {
   const [currentFile, setCurrentFile] = useState<FileOpenResponse | null>(null);
@@ -67,9 +76,12 @@ export function App() {
   const [opening, setOpening] = useState(false);
   const [rowsLoading, setRowsLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentMenuOpen, setRecentMenuOpen] = useState(false);
   const [recentFiles, setRecentFiles] = useState<RecentFile[]>(() => loadRecentFiles());
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(() => loadDisplaySettings());
   const recentMenuRef = useRef<HTMLDivElement | null>(null);
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [layoutIdentityHint, setLayoutIdentityHint] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>({});
@@ -185,6 +197,31 @@ export function App() {
       document.removeEventListener("keydown", handleDocumentKeyDown);
     };
   }, [recentMenuOpen]);
+
+  useEffect(() => {
+    if (!settingsOpen) {
+      return;
+    }
+
+    function handleDocumentPointerDown(event: PointerEvent) {
+      if (!settingsMenuRef.current?.contains(event.target as Node)) {
+        setSettingsOpen(false);
+      }
+    }
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setSettingsOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [settingsOpen]);
 
   async function handleOpenPath() {
     const trimmedPath = path.trim();
@@ -327,6 +364,11 @@ export function App() {
     storeRecentFiles([]);
   }
 
+  function updateDisplaySettings(nextSettings: DisplaySettings) {
+    setDisplaySettings(nextSettings);
+    storeDisplaySettings(nextSettings);
+  }
+
   const canGoPrevious = offset > 0;
   const canGoNext = rows ? offset + PAGE_SIZE < rows.total_rows : false;
 
@@ -458,14 +500,49 @@ export function App() {
         <section className="table-zone">
           <div className="table-toolbar">
             <div>{currentFile ? currentFile.name : "No active file"}</div>
-            <button
-              type="button"
-              onClick={() => currentFile && void loadFile(currentFile)}
-              disabled={!currentFile || loading}
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </button>
+            <div className="table-actions">
+              <div className="settings-menu" ref={settingsMenuRef}>
+                <button
+                  type="button"
+                  className="secondary-button settings-button"
+                  aria-controls="table-display-settings"
+                  aria-expanded={settingsOpen}
+                  aria-haspopup="true"
+                  onClick={() => setSettingsOpen((open) => !open)}
+                >
+                  <Settings2 size={16} />
+                  Settings
+                </button>
+                {settingsOpen ? (
+                  <div className="settings-popover" id="table-display-settings" role="group" aria-label="Table display settings">
+                    <label className="setting-toggle">
+                      <input
+                        type="checkbox"
+                        checked={displaySettings.showCellNewlines}
+                        onChange={(event) =>
+                          updateDisplaySettings({
+                            ...displaySettings,
+                            showCellNewlines: event.target.checked
+                          })
+                        }
+                      />
+                      <span>
+                        <strong>Show cell line breaks</strong>
+                        <small>Render newline characters inside cell values.</small>
+                      </span>
+                    </label>
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => currentFile && void loadFile(currentFile)}
+                disabled={!currentFile || loading}
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </button>
+            </div>
           </div>
 
           <DataTable
@@ -475,6 +552,7 @@ export function App() {
             columnOrder={columnOrder}
             visibleColumns={visibleColumns}
             columnSettings={columnSettings}
+            displaySettings={displaySettings}
             onColumnWidthChange={setColumnWidth}
             onToggleColumnWrap={toggleColumnWrap}
           />
@@ -583,6 +661,7 @@ function DataTable({
   columnOrder,
   visibleColumns,
   columnSettings,
+  displaySettings,
   onColumnWidthChange,
   onToggleColumnWrap
 }: {
@@ -592,6 +671,7 @@ function DataTable({
   columnOrder: string[];
   visibleColumns: ColumnVisibility;
   columnSettings: ColumnSettingsByName;
+  displaySettings: DisplaySettings;
   onColumnWidthChange: (columnName: string, width: number) => void;
   onToggleColumnWrap: (columnName: string) => void;
 }) {
@@ -729,8 +809,14 @@ function DataTable({
                 <td className="row-number">{offset + rowIndex + 1}</td>
                 {columnNames.map((columnName) => {
                   const wraps = columnSettings[columnName]?.wrap ?? false;
+                  const cellClassName = [
+                    wraps ? "cell-wrap" : null,
+                    displaySettings.showCellNewlines ? "cell-preserve-newlines" : null
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
                   return (
-                    <td className={wraps ? "cell-wrap" : undefined} key={columnName}>
+                    <td className={cellClassName || undefined} key={columnName}>
                       {formatCell(row[columnName])}
                     </td>
                   );
@@ -874,6 +960,35 @@ function removeStoredLayout(storageKey: string | null) {
     localStorage.removeItem(storageKey);
   } catch {
     // Browsing should continue if storage is unavailable.
+  }
+}
+
+function loadDisplaySettings(): DisplaySettings {
+  try {
+    const rawSettings = localStorage.getItem(DISPLAY_SETTINGS_STORAGE_KEY);
+    if (!rawSettings) {
+      return DEFAULT_DISPLAY_SETTINGS;
+    }
+    const parsed = JSON.parse(rawSettings);
+    if (!isRecord(parsed)) {
+      return DEFAULT_DISPLAY_SETTINGS;
+    }
+    return {
+      showCellNewlines:
+        typeof parsed.showCellNewlines === "boolean"
+          ? parsed.showCellNewlines
+          : DEFAULT_DISPLAY_SETTINGS.showCellNewlines
+    };
+  } catch {
+    return DEFAULT_DISPLAY_SETTINGS;
+  }
+}
+
+function storeDisplaySettings(settings: DisplaySettings) {
+  try {
+    localStorage.setItem(DISPLAY_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // Browsing should continue if storage is unavailable or full.
   }
 }
 
