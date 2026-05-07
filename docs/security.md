@@ -59,9 +59,9 @@ integration opt-in.
 
 The browser UI stores per-file table layout preferences in `localStorage` so a
 CSV can reopen with the remembered column order, visibility, widths, and wrapping
-settings. It also stores global display preferences, such as whether newline
-characters inside cell values are shown as line breaks. This storage is local to
-the browser and does not include row values, but per-file layout state can
-include column names and layout metadata. Users handling especially sensitive
-schemas should clear browser site data if that local metadata should not remain
-on the machine.
+settings. It also stores per-file filter preferences and global display
+preferences, such as whether newline characters inside cell values are shown as
+line breaks. This storage is local to the browser, but per-file state can include
+column names, selected filter values, and layout metadata. Users handling
+especially sensitive schemas or values should clear browser site data if that
+local metadata should not remain on the machine.

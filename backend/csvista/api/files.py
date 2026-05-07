@@ -3,10 +3,18 @@ from pathlib import Path
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from csvista.config import ServerConfig
-from csvista.core.csv_loader import CsvLoader, CsvLoaderError
+from csvista.core.csv_loader import CsvFilterError, CsvLoader, CsvLoaderError
 from csvista.core.file_registry import FileRegistry
 from csvista.core.path_policy import PathPolicy, PathPolicyError
-from csvista.models.file import FileOpenRequest, FileOpenResponse, MetadataResponse, RowsResponse
+from csvista.models.file import (
+    FileOpenRequest,
+    FileOpenResponse,
+    MetadataResponse,
+    RowsQueryRequest,
+    RowsResponse,
+    ValueOptionsQueryRequest,
+    ValueOptionsResponse,
+)
 
 UPLOAD_CHUNK_SIZE = 1024 * 1024
 
@@ -80,6 +88,52 @@ def create_files_router(
             raise HTTPException(status_code=404, detail="File not found.")
         try:
             return loader.rows(record, offset=offset, limit=limit)
+        except CsvLoaderError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @router.post("/{file_id}/rows/query", response_model=RowsResponse)
+    def query_rows(file_id: str, request: RowsQueryRequest) -> RowsResponse:
+        if request.offset < 0:
+            raise HTTPException(status_code=400, detail="offset must be non-negative.")
+        if request.limit < 1 or request.limit > 1000:
+            raise HTTPException(status_code=400, detail="limit must be between 1 and 1000.")
+
+        record = registry.get(file_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="File not found.")
+        try:
+            return loader.filtered_rows(
+                record,
+                offset=request.offset,
+                limit=request.limit,
+                filters=request.filters,
+            )
+        except CsvFilterError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except CsvLoaderError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @router.post("/{file_id}/values/query", response_model=ValueOptionsResponse)
+    def query_values(file_id: str, request: ValueOptionsQueryRequest) -> ValueOptionsResponse:
+        if request.offset < 0:
+            raise HTTPException(status_code=400, detail="offset must be non-negative.")
+        if request.limit < 1 or request.limit > 1000:
+            raise HTTPException(status_code=400, detail="limit must be between 1 and 1000.")
+
+        record = registry.get(file_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="File not found.")
+        try:
+            return loader.value_options(
+                record,
+                column=request.column,
+                search=request.search,
+                offset=request.offset,
+                limit=request.limit,
+                filters=request.filters,
+            )
+        except CsvFilterError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         except CsvLoaderError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
 

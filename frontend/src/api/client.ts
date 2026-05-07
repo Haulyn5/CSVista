@@ -26,6 +26,41 @@ export type RowsResponse = {
   rows: Record<string, unknown>[];
 };
 
+export type FilterValue = {kind: "null"} | {kind: "value"; value: unknown};
+
+export type ValueFilter = {
+  column: string;
+  values: FilterValue[];
+};
+
+export type RowsQueryRequest = {
+  offset: number;
+  limit: number;
+  filters: ValueFilter[];
+};
+
+export type ValueOption = {
+  value: FilterValue;
+  display: string;
+  count: number;
+};
+
+export type ValueOptionsQueryRequest = {
+  column: string;
+  search: string;
+  offset: number;
+  limit: number;
+  filters: ValueFilter[];
+};
+
+export type ValueOptionsResponse = {
+  column: string;
+  offset: number;
+  limit: number;
+  total_values: number;
+  values: ValueOption[];
+};
+
 async function requestJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   if (!response.ok) {
@@ -75,4 +110,23 @@ export async function getMetadata(fileId: string): Promise<MetadataResponse> {
 export async function getRows(fileId: string, offset: number, limit: number): Promise<RowsResponse> {
   const params = new URLSearchParams({offset: String(offset), limit: String(limit)});
   return requestJson<RowsResponse>(`/api/files/${fileId}/rows?${params}`);
+}
+
+export async function queryRows(fileId: string, request: RowsQueryRequest): Promise<RowsResponse> {
+  return requestJson<RowsResponse>(`/api/files/${fileId}/rows/query`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(request)
+  });
+}
+
+export async function queryColumnValues(
+  fileId: string,
+  request: ValueOptionsQueryRequest
+): Promise<ValueOptionsResponse> {
+  return requestJson<ValueOptionsResponse>(`/api/files/${fileId}/values/query`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(request)
+  });
 }

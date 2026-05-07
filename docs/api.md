@@ -58,6 +58,82 @@ GET /api/files/{file_id}/rows?offset=0&limit=100
 
 Returns a page of rows and column metadata.
 
+## Filtered Rows
+
+```text
+POST /api/files/{file_id}/rows/query
+```
+
+Request:
+
+```json
+{
+  "offset": 0,
+  "limit": 100,
+  "filters": [
+    {
+      "column": "team",
+      "values": [{"kind": "value", "value": "core"}]
+    },
+    {
+      "column": "note",
+      "values": [{"kind": "null"}]
+    }
+  ]
+}
+```
+
+Returns the same shape as the unfiltered rows endpoint. `total_rows` is the
+number of rows after filters are applied. Multiple values within one column are
+ORed together; filters across columns are ANDed together. `{"kind": "null"}` is
+distinct from `{"kind": "value", "value": ""}`.
+
+## Filter Value Options
+
+```text
+POST /api/files/{file_id}/values/query
+```
+
+Request:
+
+```json
+{
+  "column": "name",
+  "search": "ad",
+  "offset": 0,
+  "limit": 100,
+  "filters": [
+    {
+      "column": "team",
+      "values": [{"kind": "value", "value": "core"}]
+    }
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "column": "name",
+  "offset": 0,
+  "limit": 100,
+  "total_values": 1,
+  "values": [
+    {
+      "value": {"kind": "value", "value": "Ada"},
+      "display": "Ada",
+      "count": 12
+    }
+  ]
+}
+```
+
+The value options endpoint returns paginated unique values for one column with
+row counts. Options are narrowed by other active filters, while the current
+column's own filter is ignored so users can add or remove values for that
+column.
+
 CSV parsing failures return `422` with a JSON `detail` message. Missing file IDs
-return `404`, invalid pagination parameters return `400`, and uploads that
-exceed the configured limit return `413`.
+return `404`, invalid pagination parameters or unknown filter columns return
+`400`, and uploads that exceed the configured limit return `413`.

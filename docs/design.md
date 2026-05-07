@@ -37,7 +37,8 @@ FastAPI backend
 - Accept uploads into a managed temporary storage area.
 - Register opened files and return opaque file IDs.
 - Infer metadata and column types.
-- Serve paginated row data.
+- Serve paginated row data, including exact-value filtered row pages.
+- Serve paginated unique value options with counts for column filter controls.
 - Cache the most recently read file snapshot to reduce repeated parsing during
   browsing.
 - Planned: detect CSV parsing options such as delimiter and encoding, and
@@ -51,11 +52,13 @@ FastAPI backend
 - Present loading, error, and empty states.
 - Let users adjust the table layout with column visibility toggles, column
   reordering, column resizing, and per-column text wrapping.
+- Let users filter rows by selecting exact values from any column. Multiple
+  values in one column are ORed, and filters across columns are ANDed.
 - Let users choose whether newline characters inside cell values are rendered as
   line breaks. This is a global display preference, separate from per-column
   wrapping.
-- Persist table layout preferences in browser storage per CSV so reopening the
-  same file restores the remembered layout.
+- Persist table layout and filter preferences in browser storage per CSV so
+  reopening the same file restores the remembered state.
 - Planned: keep richer interaction state such as selected columns, filters, and
   sorting.
 
@@ -67,6 +70,8 @@ POST /api/files/upload
 POST /api/files/open-path
 GET  /api/files/{file_id}/metadata
 GET  /api/files/{file_id}/rows?offset=0&limit=100
+POST /api/files/{file_id}/rows/query
+POST /api/files/{file_id}/values/query
 GET  /api/files/{file_id}/columns
 GET  /api/files/{file_id}/profile
 POST /api/files/{file_id}/query
@@ -113,6 +118,8 @@ Future large-file work can add:
 - Numeric values right-aligned.
 - Null and empty values visually distinct but quiet.
 - Long values truncated with a detail expansion path.
+- Active filters should remain visible even when their columns are hidden, and
+  restored filters should be called out with a clear-all action.
 - Cell-internal newline rendering should be user-controlled so dense browsing
   remains compact by default while multiline values can be inspected when
   needed.
@@ -126,8 +133,8 @@ Future large-file work can add:
 1. Project scaffold and documentation.
 2. Backend file registry, path policy, and CSV row APIs.
 3. Frontend open-file page and viewer page.
-4. Table interactions: pagination, hiding, reordering, resizing, wrapping,
-   cell-line-break display, and per-file layout memory.
+4. Table interactions: pagination, exact-value filtering, hiding, reordering,
+   resizing, wrapping, cell-line-break display, and per-file layout memory.
 5. Column profiling.
 6. Packaging into a single installable CLI.
 

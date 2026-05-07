@@ -4,24 +4,32 @@ import {
   ChevronDown,
   Clock,
   FileUp,
+  Filter,
   FolderOpen,
   GripVertical,
   PanelLeftClose,
   PanelLeftOpen,
   RefreshCw,
   RotateCcw,
+  Search,
   Settings2,
   TableProperties,
-  WrapText
+  WrapText,
+  X
 } from "lucide-react";
 
 import {
+  FilterValue,
   FileOpenResponse,
   MetadataResponse,
   RowsResponse,
+  ValueFilter,
+  ValueOption,
   getMetadata,
   getRows,
   openPath,
+  queryColumnValues,
+  queryRows,
   uploadCsv
 } from "./api/client";
 
@@ -31,6 +39,7 @@ const DEFAULT_COLUMN_WIDTH = 180;
 const DEFAULT_MAX_COLUMN_WIDTH = 280;
 const MIN_COLUMN_WIDTH = 80;
 const MAX_COLUMN_WIDTH = 720;
+const VALUE_OPTIONS_PAGE_SIZE = 100;
 
 type ColumnSettings = {
   width: number;
@@ -50,6 +59,8 @@ type DisplaySettings = {
   showCellNewlines: boolean;
 };
 
+type ColumnFilters = Record<string, FilterValue[]>;
+
 type RecentFile = {
   path: string;
   name: string;
@@ -59,6 +70,7 @@ type RecentFile = {
 const EMPTY_COLUMNS: RowsResponse["columns"] = [];
 const EMPTY_ROWS: RowsResponse["rows"] = [];
 const LAYOUT_STORAGE_PREFIX = "csvista:table-layout:v1:";
+const FILTER_STORAGE_PREFIX = "csvista:table-filters:v1:";
 const DISPLAY_SETTINGS_STORAGE_KEY = "csvista:display-settings:v1";
 const RECENT_FILES_STORAGE_KEY = "csvista:recent-files:v1";
 const MAX_RECENT_FILES = 8;
@@ -87,17 +99,29 @@ export function App() {
   const [visibleColumns, setVisibleColumns] = useState<ColumnVisibility>({});
   const [columnSettings, setColumnSettings] = useState<ColumnSettingsByName>({});
   const [layoutReady, setLayoutReady] = useState(false);
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [restoredFiltersNotice, setRestoredFiltersNotice] = useState(false);
   const loading = opening || rowsLoading;
   const layoutStorageKey = useMemo(
     () => (metadata ? layoutStorageKeyForMetadata(metadata, layoutIdentityHint) : null),
     [layoutIdentityHint, metadata]
   );
+  const filterStorageKey = useMemo(
+    () => (metadata ? filterStorageKeyForMetadata(metadata, layoutIdentityHint) : null),
+    [layoutIdentityHint, metadata]
+  );
+  const activeFilters = useMemo(() => columnFiltersToValueFilters(columnFilters), [columnFilters]);
+  const hasActiveFilters = activeFilters.length > 0;
 
   const loadFile = useCallback(async (file: FileOpenResponse, nextLayoutIdentityHint?: string) => {
     setOpening(true);
     setError(null);
     setMetadata(null);
     setRows(null);
+    setColumnFilters({});
+    setFiltersReady(false);
+    setRestoredFiltersNotice(false);
     setOffset(0);
     if (nextLayoutIdentityHint !== undefined) {
       setLayoutIdentityHint(nextLayoutIdentityHint);
@@ -117,13 +141,16 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!currentFile) {
+    if (!currentFile || !metadata || !filtersReady) {
       return;
     }
     let cancelled = false;
     setRowsLoading(true);
     setError(null);
-    getRows(currentFile.file_id, offset, PAGE_SIZE)
+    const rowsRequest = hasActiveFilters
+      ? queryRows(currentFile.file_id, {offset, limit: PAGE_SIZE, filters: activeFilters})
+      : getRows(currentFile.file_id, offset, PAGE_SIZE);
+    rowsRequest
       .then((nextRows) => {
         if (!cancelled) {
           setRows(nextRows);
@@ -142,7 +169,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentFile, offset]);
+  }, [activeFilters, currentFile, filtersReady, hasActiveFilters, metadata, offset]);
 
   useEffect(() => {
     if (!metadata) {
@@ -162,6 +189,21 @@ export function App() {
   }, [layoutIdentityHint, metadata]);
 
   useEffect(() => {
+    if (!metadata) {
+      setColumnFilters({});
+      setFiltersReady(false);
+      setRestoredFiltersNotice(false);
+      return;
+    }
+
+    const storedFilters = loadStoredFilters(metadata, layoutIdentityHint);
+    const nextFilters = storedFilters ? mergeFiltersWithMetadata(storedFilters, metadata) : {};
+    setColumnFilters(nextFilters);
+    setFiltersReady(true);
+    setRestoredFiltersNotice(Object.keys(nextFilters).length > 0);
+  }, [layoutIdentityHint, metadata]);
+
+  useEffect(() => {
     if (!metadata || !layoutReady || !layoutStorageKey) {
       return;
     }
@@ -172,6 +214,14 @@ export function App() {
       columnSettings
     });
   }, [columnOrder, columnSettings, layoutReady, layoutStorageKey, metadata, visibleColumns]);
+
+  useEffect(() => {
+    if (!metadata || !filtersReady || !filterStorageKey) {
+      return;
+    }
+
+    storeFilters(filterStorageKey, columnFilters);
+  }, [columnFilters, filterStorageKey, filtersReady, metadata]);
 
   useEffect(() => {
     if (!recentMenuOpen) {
@@ -364,6 +414,26 @@ export function App() {
     storeRecentFiles([]);
   }
 
+  function setColumnFilter(columnName: string, values: FilterValue[]) {
+    setColumnFilters((currentFilters) => {
+      const nextFilters = {...currentFilters};
+      if (values.length > 0) {
+        nextFilters[columnName] = values;
+      } else {
+        delete nextFilters[columnName];
+      }
+      return nextFilters;
+    });
+    setRestoredFiltersNotice(false);
+    setOffset(0);
+  }
+
+  function clearAllFilters() {
+    setColumnFilters({});
+    setRestoredFiltersNotice(false);
+    setOffset(0);
+  }
+
   function updateDisplaySettings(nextSettings: DisplaySettings) {
     setDisplaySettings(nextSettings);
     storeDisplaySettings(nextSettings);
@@ -545,15 +615,60 @@ export function App() {
             </div>
           </div>
 
+          {restoredFiltersNotice ? (
+            <div className="filter-notice" role="status">
+              <span>This file has restored filters.</span>
+              <button type="button" className="secondary-button compact-button" onClick={clearAllFilters}>
+                Clear all filters
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Dismiss restored filters notice"
+                title="Dismiss"
+                onClick={() => setRestoredFiltersNotice(false)}
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ) : null}
+
+          {hasActiveFilters ? (
+            <div className="filter-bar" aria-label="Active filters">
+              {activeFilters.map((filterItem) => (
+                <span className="filter-chip" key={filterItem.column}>
+                  <strong>{filterItem.column}</strong>
+                  <span>{formatFilterSummary(filterItem.values)}</span>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label={`Clear filter for ${filterItem.column}`}
+                    title={`Clear filter for ${filterItem.column}`}
+                    onClick={() => setColumnFilter(filterItem.column, [])}
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+              <button type="button" className="secondary-button compact-button" onClick={clearAllFilters}>
+                Clear all
+              </button>
+            </div>
+          ) : null}
+
           <DataTable
+            fileId={currentFile?.file_id ?? null}
             rows={rows}
             offset={offset}
             loading={loading}
             columnOrder={columnOrder}
             visibleColumns={visibleColumns}
             columnSettings={columnSettings}
+            columnFilters={columnFilters}
+            activeFilters={activeFilters}
             displaySettings={displaySettings}
             onColumnWidthChange={setColumnWidth}
+            onColumnFilterChange={setColumnFilter}
             onToggleColumnWrap={toggleColumnWrap}
           />
 
@@ -561,9 +676,7 @@ export function App() {
             <button type="button" disabled={!canGoPrevious} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
               Previous
             </button>
-            <span>
-              {rows ? `${offset + 1}-${Math.min(offset + PAGE_SIZE, rows.total_rows)} of ${rows.total_rows}` : "0 rows"}
-            </span>
+            <span>{formatPagerLabel(rows, offset, PAGE_SIZE)}</span>
             <button type="button" disabled={!canGoNext} onClick={() => setOffset(offset + PAGE_SIZE)}>
               Next
             </button>
@@ -655,26 +768,36 @@ function MetadataSummary({
 }
 
 function DataTable({
+  fileId,
   rows,
   offset,
   loading,
   columnOrder,
   visibleColumns,
   columnSettings,
+  columnFilters,
+  activeFilters,
   displaySettings,
   onColumnWidthChange,
+  onColumnFilterChange,
   onToggleColumnWrap
 }: {
+  fileId: string | null;
   rows: RowsResponse | null;
   offset: number;
   loading: boolean;
   columnOrder: string[];
   visibleColumns: ColumnVisibility;
   columnSettings: ColumnSettingsByName;
+  columnFilters: ColumnFilters;
+  activeFilters: ValueFilter[];
   displaySettings: DisplaySettings;
   onColumnWidthChange: (columnName: string, width: number) => void;
+  onColumnFilterChange: (columnName: string, values: FilterValue[]) => void;
   onToggleColumnWrap: (columnName: string) => void;
 }) {
+  const [filterColumnName, setFilterColumnName] = useState<string | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement | null>(null);
   const rowColumns = rows?.columns ?? EMPTY_COLUMNS;
   const visibleRows = rows?.rows ?? EMPTY_ROWS;
   const hasRows = visibleRows.length > 0;
@@ -742,6 +865,31 @@ function DataTable({
     );
   }
 
+  useEffect(() => {
+    if (!filterColumnName) {
+      return;
+    }
+
+    function handleDocumentPointerDown(event: PointerEvent) {
+      if (!filterMenuRef.current?.contains(event.target as Node)) {
+        setFilterColumnName(null);
+      }
+    }
+
+    function handleDocumentKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        setFilterColumnName(null);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown);
+    document.addEventListener("keydown", handleDocumentKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown);
+      document.removeEventListener("keydown", handleDocumentKeyDown);
+    };
+  }, [filterColumnName]);
+
   if (!rows) {
     return <div className="empty-state">Open a CSV file to start browsing.</div>;
   }
@@ -778,6 +926,31 @@ function DataTable({
                   >
                     <WrapText size={15} />
                   </button>
+                  <div className="column-filter-menu" ref={filterColumnName === column.name ? filterMenuRef : null}>
+                    <button
+                      type="button"
+                      className={`icon-button filter-toggle ${columnFilters[column.name]?.length ? "active" : ""}`}
+                      aria-label={`Filter ${column.name}`}
+                      aria-expanded={filterColumnName === column.name}
+                      title={`Filter ${column.name}`}
+                      onClick={() => setFilterColumnName((currentColumn) => (currentColumn === column.name ? null : column.name))}
+                    >
+                      <Filter size={15} />
+                    </button>
+                    {filterColumnName === column.name && fileId ? (
+                      <ColumnFilterPopover
+                        fileId={fileId}
+                        columnName={column.name}
+                        activeFilters={activeFilters}
+                        selectedValues={columnFilters[column.name] ?? []}
+                        onApply={(values) => {
+                          onColumnFilterChange(column.name, values);
+                          setFilterColumnName(null);
+                        }}
+                        onClose={() => setFilterColumnName(null)}
+                      />
+                    ) : null}
+                  </div>
                 </div>
                 <div
                   role="separator"
@@ -836,6 +1009,143 @@ function DataTable({
   );
 }
 
+function ColumnFilterPopover({
+  fileId,
+  columnName,
+  activeFilters,
+  selectedValues,
+  onApply,
+  onClose
+}: {
+  fileId: string;
+  columnName: string;
+  activeFilters: ValueFilter[];
+  selectedValues: FilterValue[];
+  onApply: (values: FilterValue[]) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [options, setOptions] = useState<ValueOption[]>([]);
+  const [totalValues, setTotalValues] = useState(0);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [optionError, setOptionError] = useState<string | null>(null);
+  const [draftValues, setDraftValues] = useState<FilterValue[]>(selectedValues);
+  const draftKeys = useMemo(() => new Set(draftValues.map(filterValueKey)), [draftValues]);
+  const hasMore = options.length < totalValues;
+
+  useEffect(() => {
+    setDraftValues(selectedValues);
+  }, [selectedValues]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingOptions(true);
+    setOptionError(null);
+    queryColumnValues(fileId, {
+      column: columnName,
+      search,
+      offset: 0,
+      limit: VALUE_OPTIONS_PAGE_SIZE,
+      filters: activeFilters
+    })
+      .then((response) => {
+        if (!cancelled) {
+          setOptions(response.values);
+          setTotalValues(response.total_values);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setOptionError(err instanceof Error ? err.message : "Failed to load filter values.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingOptions(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFilters, columnName, fileId, search]);
+
+  function loadMore() {
+    setLoadingOptions(true);
+    setOptionError(null);
+    queryColumnValues(fileId, {
+      column: columnName,
+      search,
+      offset: options.length,
+      limit: VALUE_OPTIONS_PAGE_SIZE,
+      filters: activeFilters
+    })
+      .then((response) => {
+        setOptions((currentOptions) => [...currentOptions, ...response.values]);
+        setTotalValues(response.total_values);
+      })
+      .catch((err) => {
+        setOptionError(err instanceof Error ? err.message : "Failed to load filter values.");
+      })
+      .finally(() => setLoadingOptions(false));
+  }
+
+  function toggleValue(value: FilterValue) {
+    const key = filterValueKey(value);
+    setDraftValues((currentValues) =>
+      currentValues.some((currentValue) => filterValueKey(currentValue) === key)
+        ? currentValues.filter((currentValue) => filterValueKey(currentValue) !== key)
+        : [...currentValues, value]
+    );
+  }
+
+  return (
+    <div className="filter-popover" role="group" aria-label={`Filter ${columnName}`}>
+      <div className="filter-search">
+        <Search size={15} />
+        <input
+          autoFocus
+          value={search}
+          placeholder="Search values"
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      </div>
+      <div className="filter-options" aria-busy={loadingOptions}>
+        {optionError ? <div className="filter-message">{optionError}</div> : null}
+        {!optionError && options.length === 0 && !loadingOptions ? (
+          <div className="filter-message">No values found.</div>
+        ) : null}
+        {options.map((option) => {
+          const key = filterValueKey(option.value);
+          return (
+            <label className="filter-option" key={key}>
+              <input type="checkbox" checked={draftKeys.has(key)} onChange={() => toggleValue(option.value)} />
+              <span title={option.display}>{option.display}</span>
+              <strong>{option.count}</strong>
+            </label>
+          );
+        })}
+        {loadingOptions ? <div className="filter-message">Loading values...</div> : null}
+      </div>
+      {hasMore ? (
+        <button type="button" className="secondary-button filter-load-more" disabled={loadingOptions} onClick={loadMore}>
+          Load more
+        </button>
+      ) : null}
+      <div className="filter-actions">
+        <button type="button" className="secondary-button compact-button" onClick={() => setDraftValues([])}>
+          Clear column
+        </button>
+        <button type="button" className="secondary-button compact-button" onClick={onClose}>
+          Cancel
+        </button>
+        <button type="button" className="compact-button" onClick={() => onApply(draftValues)}>
+          Apply
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function estimateDefaultColumnWidth(columnName: string) {
   const headerWidth = columnName.length * 9 + 72;
   return Math.min(DEFAULT_MAX_COLUMN_WIDTH, clampColumnWidth(Math.max(DEFAULT_COLUMN_WIDTH, headerWidth)));
@@ -886,6 +1196,14 @@ function sanitizeColumnSettings(settings: ColumnSettings | undefined, columnName
 }
 
 function layoutStorageKeyForMetadata(metadata: MetadataResponse, identityHint: string | null) {
+  return `${LAYOUT_STORAGE_PREFIX}${hashMetadata(metadata, identityHint)}`;
+}
+
+function filterStorageKeyForMetadata(metadata: MetadataResponse, identityHint: string | null) {
+  return `${FILTER_STORAGE_PREFIX}${hashMetadata(metadata, identityHint)}`;
+}
+
+function hashMetadata(metadata: MetadataResponse, identityHint: string | null) {
   const fingerprint = JSON.stringify({
     identityHint,
     name: metadata.name,
@@ -894,7 +1212,7 @@ function layoutStorageKeyForMetadata(metadata: MetadataResponse, identityHint: s
     totalRows: metadata.total_rows,
     columns: metadata.columns.map((column) => [column.name, column.dtype])
   });
-  return `${LAYOUT_STORAGE_PREFIX}${hashString(fingerprint)}`;
+  return hashString(fingerprint);
 }
 
 function loadStoredLayout(metadata: MetadataResponse, identityHint: string | null): TableLayout | null {
@@ -963,6 +1281,75 @@ function removeStoredLayout(storageKey: string | null) {
   }
 }
 
+function mergeFiltersWithMetadata(filters: ColumnFilters, metadata: MetadataResponse): ColumnFilters {
+  const columnNameSet = new Set(metadata.columns.map((column) => column.name));
+  return Object.fromEntries(
+    Object.entries(filters)
+      .filter(([columnName, values]) => columnNameSet.has(columnName) && values.length > 0)
+      .map(([columnName, values]) => [columnName, uniqueFilterValues(values)])
+  );
+}
+
+function columnFiltersToValueFilters(filters: ColumnFilters): ValueFilter[] {
+  return Object.entries(filters)
+    .filter(([, values]) => values.length > 0)
+    .map(([column, values]) => ({column, values}));
+}
+
+function loadStoredFilters(metadata: MetadataResponse, identityHint: string | null): ColumnFilters | null {
+  try {
+    const rawFilters = localStorage.getItem(filterStorageKeyForMetadata(metadata, identityHint));
+    if (!rawFilters) {
+      return null;
+    }
+    return parseStoredFilters(JSON.parse(rawFilters));
+  } catch {
+    return null;
+  }
+}
+
+function parseStoredFilters(value: unknown): ColumnFilters | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([columnName, values]) => {
+        if (!Array.isArray(values)) {
+          return null;
+        }
+        const parsedValues = values.map(parseFilterValue).filter((filterValue): filterValue is FilterValue => Boolean(filterValue));
+        return parsedValues.length > 0 ? ([columnName, uniqueFilterValues(parsedValues)] as const) : null;
+      })
+      .filter((entry): entry is readonly [string, FilterValue[]] => Boolean(entry))
+  );
+}
+
+function parseFilterValue(value: unknown): FilterValue | null {
+  if (!isRecord(value) || typeof value.kind !== "string") {
+    return null;
+  }
+  if (value.kind === "null") {
+    return {kind: "null"};
+  }
+  if (value.kind === "value") {
+    return {kind: "value", value: value.value};
+  }
+  return null;
+}
+
+function storeFilters(storageKey: string, filters: ColumnFilters) {
+  try {
+    if (Object.keys(filters).length === 0) {
+      localStorage.removeItem(storageKey);
+      return;
+    }
+    localStorage.setItem(storageKey, JSON.stringify(filters));
+  } catch {
+    // Browsing should continue if storage is unavailable or full.
+  }
+}
+
 function loadDisplaySettings(): DisplaySettings {
   try {
     const rawSettings = localStorage.getItem(DISPLAY_SETTINGS_STORAGE_KEY);
@@ -998,6 +1385,49 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function uniqueColumnNames(columnNames: string[]) {
   return columnNames.filter((columnName, index) => columnNames.indexOf(columnName) === index);
+}
+
+function uniqueFilterValues(values: FilterValue[]) {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    const key = filterValueKey(value);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function filterValueKey(value: FilterValue) {
+  return JSON.stringify(value);
+}
+
+function formatFilterValue(value: FilterValue) {
+  if (value.kind === "null") {
+    return "NULL";
+  }
+  if (value.value === "") {
+    return "(empty string)";
+  }
+  return String(value.value);
+}
+
+function formatFilterSummary(values: FilterValue[]) {
+  if (values.length === 0) {
+    return "No values";
+  }
+  if (values.length <= 2) {
+    return values.map(formatFilterValue).join(", ");
+  }
+  return `${values.slice(0, 2).map(formatFilterValue).join(", ")} +${values.length - 2}`;
+}
+
+function formatPagerLabel(rows: RowsResponse | null, offset: number, pageSize: number) {
+  if (!rows || rows.total_rows === 0) {
+    return "0 rows";
+  }
+  return `${offset + 1}-${Math.min(offset + pageSize, rows.total_rows)} of ${rows.total_rows}`;
 }
 
 function hashString(value: string) {
