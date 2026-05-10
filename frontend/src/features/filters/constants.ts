@@ -1,0 +1,2 @@
+export const VALUE_OPTIONS_PAGE_SIZE = 100;
+
