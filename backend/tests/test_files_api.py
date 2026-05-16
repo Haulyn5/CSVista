@@ -1,9 +1,11 @@
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
+from typing import Callable
 
 import pytest
 from fastapi import HTTPException, UploadFile
 from fastapi.routing import APIRoute
+from pydantic import ValidationError
 
 from csvista.api.files import create_files_router
 from csvista.config import ServerConfig
@@ -179,3 +181,27 @@ def test_metadata_returns_422_for_unreadable_csv(tmp_path: Path) -> None:
 
     assert exc_info.value.status_code == 422
     assert "Unable to read CSV file" in exc_info.value.detail
+
+
+@pytest.mark.parametrize(
+    "request_factory",
+    [
+        lambda: FileOpenRequest(path=""),
+        lambda: RowsQueryRequest(offset=-1),
+        lambda: RowsQueryRequest(limit=0),
+        lambda: RowsQueryRequest(limit=1001),
+        lambda: ValueOptionsQueryRequest(column=""),
+        lambda: ValueOptionsQueryRequest(column="name", offset=-1),
+        lambda: ValueOptionsQueryRequest(column="name", limit=1001),
+        lambda: ValueFilter(column="", values=[]),
+        lambda: FilterValue(kind="unknown"),
+        lambda: FilterValue(kind="value"),
+    ],
+)
+def test_request_models_reject_invalid_values(request_factory: Callable[[], object]) -> None:
+    with pytest.raises(ValidationError):
+        request_factory()
+
+
+def test_null_filter_values_ignore_supplied_payload() -> None:
+    assert FilterValue(kind="null", value="ignored").value is None

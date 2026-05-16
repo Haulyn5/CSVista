@@ -89,10 +89,10 @@ Install frontend dependencies:
 pnpm install
 ```
 
-Run backend tests:
+Run the full local check suite:
 
 ```bash
-python -m pytest backend/tests
+pnpm check
 ```
 
 See [docs/development.md](docs/development.md) for the full development

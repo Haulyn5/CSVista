@@ -1,10 +1,10 @@
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class FileOpenRequest(BaseModel):
-    path: str
+    path: str = Field(min_length=1)
 
 
 class FileOpenResponse(BaseModel):
@@ -36,18 +36,26 @@ class RowsResponse(BaseModel):
 
 
 class FilterValue(BaseModel):
-    kind: str
+    kind: Literal["null", "value"]
     value: Any | None = None
+
+    @model_validator(mode="after")
+    def validate_value(self) -> "FilterValue":
+        if self.kind == "null":
+            self.value = None
+        elif self.value is None:
+            raise ValueError("Filter values with kind 'value' must include a value.")
+        return self
 
 
 class ValueFilter(BaseModel):
-    column: str
+    column: str = Field(min_length=1)
     values: list[FilterValue]
 
 
 class RowsQueryRequest(BaseModel):
-    offset: int = 0
-    limit: int = 100
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=100, ge=1, le=1000)
     filters: list[ValueFilter] = Field(default_factory=list)
 
 
@@ -58,10 +66,10 @@ class ValueOption(BaseModel):
 
 
 class ValueOptionsQueryRequest(BaseModel):
-    column: str
+    column: str = Field(min_length=1)
     search: str = ""
-    offset: int = 0
-    limit: int = 100
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=100, ge=1, le=1000)
     filters: list[ValueFilter] = Field(default_factory=list)
 
 

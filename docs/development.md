@@ -51,6 +51,12 @@ pnpm install
 
 ## Run Checks
 
+Full local check suite:
+
+```bash
+pnpm check
+```
+
 Backend tests:
 
 ```bash
@@ -67,6 +73,12 @@ Frontend type check:
 
 ```bash
 pnpm --dir frontend lint
+```
+
+Frontend tests:
+
+```bash
+pnpm --dir frontend test
 ```
 
 ## Run the App

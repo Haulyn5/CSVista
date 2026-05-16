@@ -16,6 +16,8 @@ from csvista.models.file import (
     ValueOptionsResponse,
 )
 
+VALUE_COUNT_COLUMN_PREFIX = "__csvista_value_count"
+
 
 class CsvLoaderError(ValueError):
     """Raised when a CSV file cannot be loaded for display."""
@@ -76,17 +78,21 @@ class CsvLoader:
         candidate_filters = [value_filter for value_filter in filters if value_filter.column != column]
         filtered = self._apply_filters(frame, candidate_filters)
         normalized_search = search.casefold()
+        count_column = self._count_column_name(filtered)
+        counts = self._value_counts(filtered, column, count_column)
         counter: Counter[str] = Counter()
         values_by_key: dict[str, FilterValue] = {}
         displays_by_key: dict[str, str] = {}
 
-        for value in filtered.get_column(column).to_list():
+        for row in counts.iter_rows(named=True):
+            value = row[column]
+            count = row[count_column]
             filter_value = self._filter_value_from_cell(value)
             display = self._display_filter_value(filter_value)
             if normalized_search and normalized_search not in display.casefold():
                 continue
             key = self._filter_value_key(filter_value)
-            counter[key] += 1
+            counter[key] += count
             values_by_key[key] = filter_value
             displays_by_key[key] = display
 
@@ -152,6 +158,18 @@ class CsvLoader:
     def _validate_column(self, frame: pl.DataFrame, column: str) -> None:
         if column not in frame.columns:
             raise CsvFilterError(f"Column not found: {column}")
+
+    def _count_column_name(self, frame: pl.DataFrame) -> str:
+        count_column = VALUE_COUNT_COLUMN_PREFIX
+        while count_column in frame.columns:
+            count_column = f"_{count_column}"
+        return count_column
+
+    def _value_counts(self, frame: pl.DataFrame, column: str, count_column: str) -> pl.DataFrame:
+        try:
+            return frame.group_by(column).agg(pl.len().alias(count_column))
+        except PolarsError as exc:
+            raise CsvFilterError("Unable to count filter values for column.") from exc
 
     def _filter_value_from_cell(self, value: Any) -> FilterValue:
         if value is None:

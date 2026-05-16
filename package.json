@@ -2,9 +2,14 @@
   "name": "csvista",
   "private": true,
   "scripts": {
-    "dev": "pnpm --dir frontend dev",
-    "build": "pnpm --dir frontend build",
-    "lint": "pnpm --dir frontend lint"
+    "dev": ".conda-env/bin/pnpm --dir frontend dev",
+    "build": ".conda-env/bin/pnpm --dir frontend build",
+    "lint": ".conda-env/bin/pnpm --dir frontend lint",
+    "lint:backend": ".conda-env/bin/ruff check backend/csvista backend/tests",
+    "test:backend": ".conda-env/bin/python -m pytest backend/tests -q",
+    "compile:backend": ".conda-env/bin/python -m compileall backend/csvista backend/tests",
+    "test:frontend": ".conda-env/bin/pnpm --dir frontend test",
+    "check": ".conda-env/bin/pnpm run lint:backend && .conda-env/bin/pnpm run test:backend && .conda-env/bin/pnpm run compile:backend && .conda-env/bin/pnpm run lint && .conda-env/bin/pnpm run test:frontend && .conda-env/bin/pnpm run build"
   },
   "packageManager": "pnpm@10.33.2"
 }

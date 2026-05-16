@@ -70,16 +70,17 @@ export function ColumnFilterPopover({
   }, [activeFilters, columnName, fileId, search]);
 
   function loadMore() {
-    const requestVersion = requestVersionRef.current;
+    const requestVersion = ++requestVersionRef.current;
+    const requestOffset = options.length;
     setLoadingOptions(true);
     setOptionError(null);
     queryColumnValues(fileId, {
       column: columnName,
       search,
-      offset: options.length,
+      offset: requestOffset,
       limit: VALUE_OPTIONS_PAGE_SIZE,
       filters: activeFilters
-      })
+    })
       .then((response) => {
         if (requestVersionRef.current === requestVersion) {
           setOptions((currentOptions) => [...currentOptions, ...response.values]);
