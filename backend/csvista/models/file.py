@@ -53,10 +53,28 @@ class ValueFilter(BaseModel):
     values: list[FilterValue]
 
 
+class SortSpec(BaseModel):
+    column: str = Field(min_length=1)
+    direction: Literal["asc", "desc"] = "asc"
+
+
+class SearchSpec(BaseModel):
+    text: str = Field(min_length=1)
+    columns: list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_columns(self) -> "SearchSpec":
+        if self.columns is not None and not self.columns:
+            raise ValueError("Search columns must not be empty.")
+        return self
+
+
 class RowsQueryRequest(BaseModel):
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=100, ge=1, le=1000)
     filters: list[ValueFilter] = Field(default_factory=list)
+    sort: list[SortSpec] = Field(default_factory=list)
+    search: SearchSpec | None = None
 
 
 class ValueOption(BaseModel):

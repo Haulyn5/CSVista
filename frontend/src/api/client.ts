@@ -33,10 +33,22 @@ export type ValueFilter = {
   values: FilterValue[];
 };
 
+export type SortSpec = {
+  column: string;
+  direction: "asc" | "desc";
+};
+
+export type SearchSpec = {
+  text: string;
+  columns?: string[] | null;
+};
+
 export type RowsQueryRequest = {
   offset: number;
   limit: number;
   filters: ValueFilter[];
+  sort: SortSpec[];
+  search?: SearchSpec | null;
 };
 
 export type ValueOption = {

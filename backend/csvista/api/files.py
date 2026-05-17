@@ -102,11 +102,13 @@ def create_files_router(
         if record is None:
             raise HTTPException(status_code=404, detail="File not found.")
         try:
-            return loader.filtered_rows(
+            return loader.query_rows(
                 record,
                 offset=request.offset,
                 limit=request.limit,
                 filters=request.filters,
+                sort=request.sort,
+                search=request.search,
             )
         except CsvFilterError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

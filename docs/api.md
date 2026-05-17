@@ -58,7 +58,7 @@ GET /api/files/{file_id}/rows?offset=0&limit=100
 
 Returns a page of rows and column metadata.
 
-## Filtered Rows
+## Query Rows
 
 ```text
 POST /api/files/{file_id}/rows/query
@@ -79,14 +79,25 @@ Request:
       "column": "note",
       "values": [{"kind": "null"}]
     }
-  ]
+  ],
+  "sort": [
+    {"column": "name", "direction": "asc"}
+  ],
+  "search": {
+    "text": "ada"
+  }
 }
 ```
 
 Returns the same shape as the unfiltered rows endpoint. `total_rows` is the
-number of rows after filters are applied. Multiple values within one column are
-ORed together; filters across columns are ANDed together. `{"kind": "null"}` is
-distinct from `{"kind": "value", "value": ""}`.
+number of rows after filters and search are applied. Multiple values within one
+column are ORed together; filters across columns are ANDed together.
+`{"kind": "null"}` is distinct from `{"kind": "value", "value": ""}`.
+
+Search is a case-insensitive substring match across all columns by default. A
+request may include `search.columns` to limit search to specific columns.
+Sorting accepts one or more sort specs, although the current frontend sends one
+column at a time.
 
 ## Filter Value Options
 
@@ -135,5 +146,5 @@ column's own filter is ignored so users can add or remove values for that
 column.
 
 CSV parsing failures return `422` with a JSON `detail` message. Missing file IDs
-return `404`, invalid pagination parameters or unknown filter columns return
+return `404`, invalid pagination parameters or unknown query columns return
 `400`, and uploads that exceed the configured limit return `413`.

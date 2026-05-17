@@ -11,6 +11,8 @@ from csvista.models.file import (
     FilterValue,
     MetadataResponse,
     RowsResponse,
+    SearchSpec,
+    SortSpec,
     ValueFilter,
     ValueOption,
     ValueOptionsResponse,
@@ -59,10 +61,23 @@ class CsvLoader:
         limit: int,
         filters: list[ValueFilter],
     ) -> RowsResponse:
+        return self.query_rows(record, offset=offset, limit=limit, filters=filters, sort=[], search=None)
+
+    def query_rows(
+        self,
+        record: FileRecord,
+        offset: int,
+        limit: int,
+        filters: list[ValueFilter],
+        sort: list[SortSpec],
+        search: SearchSpec | None,
+    ) -> RowsResponse:
         frame = self._read(record)
-        filtered = self._apply_filters(frame, filters)
-        page = filtered.slice(offset, limit)
-        return self._rows_response(filtered, page, offset, limit)
+        queried = self._apply_filters(frame, filters)
+        queried = self._apply_search(queried, search)
+        queried = self._apply_sort(queried, sort)
+        page = queried.slice(offset, limit)
+        return self._rows_response(queried, page, offset, limit)
 
     def value_options(
         self,
@@ -154,6 +169,55 @@ class CsvLoader:
         except PolarsError as exc:
             raise CsvFilterError("Filter value is incompatible with column type.") from exc
         return frame
+
+    def _apply_search(self, frame: pl.DataFrame, search: SearchSpec | None) -> pl.DataFrame:
+        if search is None:
+            return frame
+
+        search_columns = search.columns if search.columns is not None else frame.columns
+        for column in search_columns:
+            self._validate_column(frame, column)
+
+        normalized_search = search.text.lower()
+        if not normalized_search:
+            return frame
+
+        expressions = [
+            pl.col(column)
+            .cast(pl.String)
+            .str.to_lowercase()
+            .str.contains(normalized_search, literal=True)
+            .fill_null(False)
+            for column in search_columns
+        ]
+        if not expressions:
+            return frame
+
+        combined_expression = expressions[0]
+        for expression in expressions[1:]:
+            combined_expression = combined_expression | expression
+
+        try:
+            return frame.filter(combined_expression)
+        except PolarsError as exc:
+            raise CsvFilterError("Search is incompatible with CSV data.") from exc
+
+    def _apply_sort(self, frame: pl.DataFrame, sort: list[SortSpec]) -> pl.DataFrame:
+        if not sort:
+            return frame
+
+        sort_columns = [sort_item.column for sort_item in sort]
+        for column in sort_columns:
+            self._validate_column(frame, column)
+
+        try:
+            return frame.sort(
+                by=sort_columns,
+                descending=[sort_item.direction == "desc" for sort_item in sort],
+                nulls_last=True,
+            )
+        except PolarsError as exc:
+            raise CsvFilterError("Sort is incompatible with CSV data.") from exc
 
     def _validate_column(self, frame: pl.DataFrame, column: str) -> None:
         if column not in frame.columns:

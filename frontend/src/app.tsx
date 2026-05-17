@@ -6,6 +6,7 @@ import {
   PanelLeftOpen,
   RefreshCw,
   RotateCcw,
+  Search,
   TableProperties,
   X
 } from "lucide-react";
@@ -14,6 +15,7 @@ import {
   FileOpenResponse,
   MetadataResponse,
   RowsResponse,
+  SortSpec,
   getMetadata,
   getRows,
   openPath,
@@ -42,6 +44,8 @@ export function App() {
   const [opening, setOpening] = useState(false);
   const [rowsLoading, setRowsLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [sortSpec, setSortSpec] = useState<SortSpec | null>(null);
   const {recentFiles, rememberRecentFile, removeRecentFile, clearRecentFiles} = useRecentFiles();
   const {displaySettings, updateDisplaySettings} = useDisplaySettings();
   const [layoutIdentityHint, setLayoutIdentityHint] = useState<string | null>(null);
@@ -66,6 +70,9 @@ export function App() {
   } = useColumnFilters(metadata, layoutIdentityHint, () => setOffset(0));
   const loading = opening || rowsLoading;
   const hasActiveFilters = activeFilters.length > 0;
+  const trimmedSearchText = searchText.trim();
+  const hasSearch = trimmedSearchText.length > 0;
+  const hasSort = sortSpec !== null;
 
   const loadFile = useCallback(async (file: FileOpenResponse, nextLayoutIdentityHint?: string) => {
     setOpening(true);
@@ -75,6 +82,8 @@ export function App() {
     setOffset(0);
     if (nextLayoutIdentityHint !== undefined) {
       setLayoutIdentityHint(nextLayoutIdentityHint);
+      setSearchText("");
+      setSortSpec(null);
     }
     try {
       const nextMetadata = await getMetadata(file.file_id);
@@ -97,8 +106,14 @@ export function App() {
     let cancelled = false;
     setRowsLoading(true);
     setError(null);
-    const rowsRequest = hasActiveFilters
-      ? queryRows(currentFile.file_id, {offset, limit: PAGE_SIZE, filters: activeFilters})
+    const rowsRequest = hasActiveFilters || hasSearch || hasSort
+      ? queryRows(currentFile.file_id, {
+          offset,
+          limit: PAGE_SIZE,
+          filters: activeFilters,
+          sort: sortSpec ? [sortSpec] : [],
+          search: hasSearch ? {text: trimmedSearchText} : null
+        })
       : getRows(currentFile.file_id, offset, PAGE_SIZE);
     rowsRequest
       .then((nextRows) => {
@@ -119,7 +134,25 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [activeFilters, currentFile, filtersReady, hasActiveFilters, metadata, offset]);
+  }, [activeFilters, currentFile, filtersReady, hasActiveFilters, hasSearch, hasSort, metadata, offset, sortSpec, trimmedSearchText]);
+
+  function handleSearchTextChange(nextSearchText: string) {
+    setSearchText(nextSearchText);
+    setOffset(0);
+  }
+
+  function handleSortChange(columnName: string) {
+    setSortSpec((currentSortSpec) => {
+      if (currentSortSpec?.column !== columnName) {
+        return {column: columnName, direction: "asc"};
+      }
+      if (currentSortSpec.direction === "asc") {
+        return {column: columnName, direction: "desc"};
+      }
+      return null;
+    });
+    setOffset(0);
+  }
 
   async function handleOpenPath() {
     const trimmedPath = path.trim();
@@ -268,6 +301,26 @@ export function App() {
           <div className="table-toolbar">
             <div>{currentFile ? currentFile.name : "No active file"}</div>
             <div className="table-actions">
+              <label className="table-search">
+                <Search size={15} />
+                <input
+                  value={searchText}
+                  placeholder="Search rows"
+                  disabled={!currentFile}
+                  onChange={(event) => handleSearchTextChange(event.target.value)}
+                />
+                {searchText ? (
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Clear row search"
+                    title="Clear search"
+                    onClick={() => handleSearchTextChange("")}
+                  >
+                    <X size={14} />
+                  </button>
+                ) : null}
+              </label>
               <TableSettingsMenu displaySettings={displaySettings} onUpdateDisplaySettings={updateDisplaySettings} />
               <button
                 type="button"
@@ -332,8 +385,10 @@ export function App() {
             columnFilters={columnFilters}
             activeFilters={activeFilters}
             displaySettings={displaySettings}
+            sortSpec={sortSpec}
             onColumnWidthChange={setColumnWidth}
             onColumnFilterChange={setColumnFilter}
+            onSortChange={handleSortChange}
             onToggleColumnWrap={toggleColumnWrap}
           />
 

@@ -390,6 +390,29 @@ code {
   gap: 8px;
 }
 
+.table-search {
+  align-items: center;
+  border: 1px solid #bac3cf;
+  border-radius: 6px;
+  color: #667085;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: auto minmax(120px, 220px) auto;
+  min-height: 36px;
+  padding: 4px 6px 4px 10px;
+}
+
+.table-search input {
+  border: 0;
+  min-width: 0;
+  outline: none;
+}
+
+.table-search input:disabled {
+  background: transparent;
+  color: #98a2b3;
+}
+
 .compact-button {
   min-height: 30px;
   padding: 0 10px;
@@ -554,6 +577,30 @@ th {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.column-sort-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: inherit;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  justify-items: start;
+  min-height: 30px;
+  min-width: 0;
+  padding: 2px 5px;
+  text-align: left;
+  width: 100%;
+}
+
+.column-sort-button:hover,
+.column-sort-button:focus-visible,
+.column-sort-button.active {
+  background: #e8f3f1;
+  border-color: #b7d9d4;
+  color: #1f6f68;
 }
 
 .icon-button {

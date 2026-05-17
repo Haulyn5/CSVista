@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
-import { Filter, WrapText } from "lucide-react";
+import { ArrowDown, ArrowUp, Filter, WrapText } from "lucide-react";
 
-import type { FilterValue, RowsResponse, ValueFilter } from "../../api/client";
+import type { FilterValue, RowsResponse, SortSpec, ValueFilter } from "../../api/client";
 import { ColumnFilterPopover } from "../filters/ColumnFilterPopover";
 import type { ColumnFilters } from "../filters/types";
 import type { DisplaySettings } from "../settings/types";
@@ -29,8 +29,10 @@ export function DataTable({
   columnFilters,
   activeFilters,
   displaySettings,
+  sortSpec,
   onColumnWidthChange,
   onColumnFilterChange,
+  onSortChange,
   onToggleColumnWrap
 }: {
   fileId: string | null;
@@ -43,8 +45,10 @@ export function DataTable({
   columnFilters: ColumnFilters;
   activeFilters: ValueFilter[];
   displaySettings: DisplaySettings;
+  sortSpec: SortSpec | null;
   onColumnWidthChange: (columnName: string, width: number) => void;
   onColumnFilterChange: (columnName: string, values: FilterValue[]) => void;
+  onSortChange: (columnName: string) => void;
   onToggleColumnWrap: (columnName: string) => void;
 }) {
   const [filterColumnName, setFilterColumnName] = useState<string | null>(null);
@@ -161,12 +165,36 @@ export function DataTable({
           <tr>
             <th className="row-number">#</th>
             {columns.map((column) => (
-              <th key={column.name}>
+              <th
+                key={column.name}
+                aria-sort={
+                  sortSpec?.column === column.name
+                    ? sortSpec.direction === "asc"
+                      ? "ascending"
+                      : "descending"
+                    : "none"
+                }
+              >
                 <div className="column-header">
-                  <div className="column-header-title">
-                    <span>{column.name}</span>
-                    <code>{column.dtype}</code>
-                  </div>
+                  <button
+                    type="button"
+                    className={`column-sort-button ${sortSpec?.column === column.name ? "active" : ""}`}
+                    aria-label={`Sort by ${column.name}`}
+                    title={`Sort by ${column.name}`}
+                    onClick={() => onSortChange(column.name)}
+                  >
+                    <div className="column-header-title">
+                      <span>{column.name}</span>
+                      <code>{column.dtype}</code>
+                    </div>
+                    {sortSpec?.column === column.name ? (
+                      sortSpec.direction === "asc" ? (
+                        <ArrowUp size={14} />
+                      ) : (
+                        <ArrowDown size={14} />
+                      )
+                    ) : null}
+                  </button>
                   <button
                     type="button"
                     className={`icon-button wrap-toggle ${columnSettings[column.name]?.wrap ? "active" : ""}`}
@@ -266,4 +294,3 @@ function formatCell(value: unknown) {
   }
   return String(value);
 }
-

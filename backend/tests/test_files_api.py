@@ -11,7 +11,15 @@ from csvista.api.files import create_files_router
 from csvista.config import ServerConfig
 from csvista.core.file_registry import FileRegistry
 from csvista.core.path_policy import PathPolicy
-from csvista.models.file import FileOpenRequest, FilterValue, RowsQueryRequest, ValueFilter, ValueOptionsQueryRequest
+from csvista.models.file import (
+    FileOpenRequest,
+    FilterValue,
+    RowsQueryRequest,
+    SearchSpec,
+    SortSpec,
+    ValueFilter,
+    ValueOptionsQueryRequest,
+)
 
 
 def upload_file(filename: str, content: bytes) -> UploadFile:
@@ -86,6 +94,38 @@ async def test_query_rows_and_values(tmp_path: Path) -> None:
         {"id": 2, "name": "Grace", "team": "core"},
     ]
     assert [(option.display, option.count) for option in values_response.values] == [("Ada", 1), ("Grace", 1)]
+
+
+@pytest.mark.anyio
+async def test_query_rows_supports_filters_search_and_sort(tmp_path: Path) -> None:
+    registry = FileRegistry()
+    router = create_files_router(
+        registry,
+        PathPolicy([tmp_path]),
+        ServerConfig(allowed_dirs=[tmp_path], frontend_dist=tmp_path / "missing"),
+    )
+    upload = endpoint(router, "/files/upload")
+    query_rows = endpoint(router, "/files/{file_id}/rows/query")
+
+    opened = await upload(
+        upload_file(
+            "people.csv",
+            b"id,name,team\n1,Ada,core\n2,Grace,core\n3,Alan,docs\n4,Adele,core\n",
+        )
+    )
+    response = query_rows(
+        opened.file_id,
+        RowsQueryRequest(
+            offset=0,
+            limit=10,
+            filters=[ValueFilter(column="team", values=[FilterValue(kind="value", value="core")])],
+            search=SearchSpec(text="a", columns=["name"]),
+            sort=[SortSpec(column="name", direction="desc")],
+        ),
+    )
+
+    assert response.total_rows == 3
+    assert [row["name"] for row in response.rows] == ["Grace", "Adele", "Ada"]
 
 
 @pytest.mark.anyio
@@ -190,6 +230,9 @@ def test_metadata_returns_422_for_unreadable_csv(tmp_path: Path) -> None:
         lambda: RowsQueryRequest(offset=-1),
         lambda: RowsQueryRequest(limit=0),
         lambda: RowsQueryRequest(limit=1001),
+        lambda: RowsQueryRequest(sort=[SortSpec(column="name", direction="sideways")]),
+        lambda: RowsQueryRequest(search=SearchSpec(text="")),
+        lambda: RowsQueryRequest(search=SearchSpec(text="Ada", columns=[])),
         lambda: ValueOptionsQueryRequest(column=""),
         lambda: ValueOptionsQueryRequest(column="name", offset=-1),
         lambda: ValueOptionsQueryRequest(column="name", limit=1001),

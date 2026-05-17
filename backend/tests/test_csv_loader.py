@@ -6,7 +6,7 @@ import pytest
 import csvista.core.csv_loader as csv_loader_module
 from csvista.core.csv_loader import CsvFilterError, CsvLoader, CsvLoaderError
 from csvista.core.file_registry import FileRecord
-from csvista.models.file import FilterValue, ValueFilter
+from csvista.models.file import FilterValue, SearchSpec, SortSpec, ValueFilter
 
 
 def test_reads_metadata_and_rows(tmp_path: Path) -> None:
@@ -112,6 +112,97 @@ def test_filters_null_and_empty_string_separately(tmp_path: Path, monkeypatch: p
     assert empty_rows.rows == [{"id": 2, "note": ""}]
 
 
+def test_query_rows_searches_sorts_and_paginates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    csv_file = tmp_path / "people.csv"
+    csv_file.write_text("id,name,team\n")
+    record = FileRecord(file_id="file-1", name="people.csv", path=csv_file, source="path")
+
+    monkeypatch.setattr(
+        csv_loader_module.pl,
+        "read_csv",
+        lambda *args, **kwargs: pl.DataFrame(
+            {
+                "id": [1, 2, 3, 4],
+                "name": ["Ada", "Grace", "Alan", "Adele"],
+                "team": ["core", "core", "docs", "core"],
+            }
+        ),
+    )
+
+    rows = CsvLoader().query_rows(
+        record,
+        offset=1,
+        limit=1,
+        filters=[ValueFilter(column="team", values=[FilterValue(kind="value", value="core")])],
+        sort=[SortSpec(column="name", direction="desc")],
+        search=SearchSpec(text="a", columns=["name"]),
+    )
+
+    assert rows.total_rows == 3
+    assert rows.rows == [{"id": 4, "name": "Adele", "team": "core"}]
+
+
+def test_query_rows_searches_all_columns_case_insensitively(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    csv_file = tmp_path / "people.csv"
+    csv_file.write_text("id,name,team\n")
+    record = FileRecord(file_id="file-1", name="people.csv", path=csv_file, source="path")
+
+    monkeypatch.setattr(
+        csv_loader_module.pl,
+        "read_csv",
+        lambda *args, **kwargs: pl.DataFrame(
+            {
+                "id": [1, 2, 3],
+                "name": ["Ada", "Grace", "Linus"],
+                "team": ["core", "Docs", None],
+            }
+        ),
+    )
+
+    rows = CsvLoader().query_rows(
+        record,
+        offset=0,
+        limit=10,
+        filters=[],
+        sort=[SortSpec(column="id", direction="asc")],
+        search=SearchSpec(text="DOC"),
+    )
+
+    assert rows.total_rows == 1
+    assert rows.rows == [{"id": 2, "name": "Grace", "team": "Docs"}]
+
+
+def test_query_rows_sorts_by_multiple_columns(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    csv_file = tmp_path / "people.csv"
+    csv_file.write_text("id,name,team\n")
+    record = FileRecord(file_id="file-1", name="people.csv", path=csv_file, source="path")
+
+    monkeypatch.setattr(
+        csv_loader_module.pl,
+        "read_csv",
+        lambda *args, **kwargs: pl.DataFrame(
+            {
+                "id": [1, 2, 3, 4],
+                "name": ["Ada", "Grace", "Alan", "Adele"],
+                "team": ["core", "docs", "core", "docs"],
+            }
+        ),
+    )
+
+    rows = CsvLoader().query_rows(
+        record,
+        offset=0,
+        limit=10,
+        filters=[],
+        sort=[SortSpec(column="team", direction="asc"), SortSpec(column="name", direction="desc")],
+        search=None,
+    )
+
+    assert [row["name"] for row in rows.rows] == ["Alan", "Ada", "Grace", "Adele"]
+
+
 def test_value_options_are_faceted_and_searchable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     csv_file = tmp_path / "people.csv"
     csv_file.write_text("id,name,team\n")
@@ -156,6 +247,38 @@ def test_filter_rejects_unknown_column(tmp_path: Path) -> None:
             offset=0,
             limit=10,
             filters=[ValueFilter(column="missing", values=[FilterValue(kind="value", value="Ada")])],
+        )
+
+
+def test_query_rows_rejects_unknown_search_column(tmp_path: Path) -> None:
+    csv_file = tmp_path / "people.csv"
+    csv_file.write_text("id,name\n1,Ada\n")
+    record = FileRecord(file_id="file-1", name="people.csv", path=csv_file, source="path")
+
+    with pytest.raises(CsvFilterError):
+        CsvLoader().query_rows(
+            record,
+            offset=0,
+            limit=10,
+            filters=[],
+            sort=[],
+            search=SearchSpec(text="Ada", columns=["missing"]),
+        )
+
+
+def test_query_rows_rejects_unknown_sort_column(tmp_path: Path) -> None:
+    csv_file = tmp_path / "people.csv"
+    csv_file.write_text("id,name\n1,Ada\n")
+    record = FileRecord(file_id="file-1", name="people.csv", path=csv_file, source="path")
+
+    with pytest.raises(CsvFilterError):
+        CsvLoader().query_rows(
+            record,
+            offset=0,
+            limit=10,
+            filters=[],
+            sort=[SortSpec(column="missing")],
+            search=None,
         )
 
 

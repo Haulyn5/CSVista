@@ -37,7 +37,8 @@ FastAPI backend
 - Accept uploads into a managed temporary storage area.
 - Register opened files and return opaque file IDs.
 - Infer metadata and column types.
-- Serve paginated row data, including exact-value filtered row pages.
+- Serve paginated row data, including exact-value filtered, searched, and sorted
+  row pages.
 - Serve paginated unique value options with counts for column filter controls.
 - Cache the most recently read file snapshot to reduce repeated parsing during
   browsing.
@@ -54,13 +55,14 @@ FastAPI backend
   reordering, column resizing, and per-column text wrapping.
 - Let users filter rows by selecting exact values from any column. Multiple
   values in one column are ORed, and filters across columns are ANDed.
+- Let users sort rows by column and search across row values.
 - Let users choose whether newline characters inside cell values are rendered as
   line breaks. This is a global display preference, separate from per-column
   wrapping.
 - Persist table layout and filter preferences in browser storage per CSV so
   reopening the same file restores the remembered state.
-- Planned: keep richer interaction state such as selected columns, filters, and
-  sorting.
+- Planned: keep richer interaction state such as selected columns and sort
+  preferences.
 
 ## API Sketch
 
@@ -101,6 +103,8 @@ The initial implementation can optimize for correctness and simplicity:
 1. Read metadata and a sample with Polars.
 2. Cache a lightweight file descriptor in the registry.
 3. Serve paginated rows by slicing with Polars.
+4. Apply exact-value filters, simple search, and sorting against the cached
+   DataFrame before slicing.
 
 Future large-file work can add:
 
@@ -134,8 +138,10 @@ Future large-file work can add:
 2. Backend file registry, path policy, and CSV row APIs.
 3. Frontend open-file page and viewer page.
 4. Table interactions: pagination, exact-value filtering, hiding, reordering,
-   resizing, wrapping, cell-line-break display, and per-file layout memory.
+   resizing, wrapping, cell-line-break display, sorting, simple row search, and
+   per-file layout memory.
 5. Column profiling.
 6. Packaging into a single installable CLI.
 
-Future table work includes virtual scrolling, sorting, and search.
+Future table work includes virtual scrolling and richer persisted interaction
+state.
